@@ -165,11 +165,10 @@ export function RegistrationForm({ onSuccess }: Props) {
         email: data.email,
         contact: data.mobile,
 
-        onSuccess: (paymentId) => {
+        onSuccess: (rzpRes) => {
           trackPurchase(SITE.price);
-
-          onSuccess(`WTB-${paymentId.slice(-6).toUpperCase()}`);
-
+          const payId = typeof rzpRes === "string" ? rzpRes : rzpRes.razorpay_payment_id;
+          onSuccess(`WTB-${payId.slice(-6).toUpperCase()}`);
           setSubmitting(false);
         },
 

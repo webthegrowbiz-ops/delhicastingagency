@@ -4,6 +4,8 @@
  * Manages user session state in localStorage for client-side authentication.
  */
 
+import { API_URL } from "@/config/env";
+
 export type ProfileStatus = "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "SUSPENDED";
 
 export interface PremiumEntitlement {
@@ -16,11 +18,13 @@ export interface PremiumEntitlement {
 }
 
 export interface DCAUser {
+  id?: string;
   identifier?: string;
   email?: string;
   isLoggedIn: boolean;
   loginTime?: string;
-  role?: "artist" | "brand";
+  role?: "artist" | "brand" | "admin" | "ARTIST" | "BRAND" | "ADMIN";
+  token?: string;
   isPremium?: boolean;
   premiumEntitlement?: PremiumEntitlement;
   status?: ProfileStatus;
@@ -54,31 +58,62 @@ export function isUserAuthenticated(): boolean {
   return getUserSession() !== null;
 }
 
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("dca_token") || getUserSession()?.token || null;
+}
+
 export function getProfileCreateOrSetupUrl(): string {
   return "/profile/setup";
 }
 
 export function setDCAUserSession(
   emailOrPhone: string,
-  role: "artist" | "brand" = "artist",
-  isNewRegistration: boolean = false
+  role: "artist" | "brand" | "admin" | "ARTIST" | "BRAND" | "ADMIN" = "ARTIST",
+  isNewRegistration: boolean = false,
+  token?: string,
+  userId?: string
 ) {
   if (typeof window !== "undefined") {
     const existing = getUserSession();
     const isSameUser =
-      existing &&
-      (existing.identifier === emailOrPhone || existing.email === emailOrPhone);
+      Boolean(existing &&
+      (existing.identifier === emailOrPhone || existing.email === emailOrPhone));
+
+    // CRITICAL SECURITY FIX: Never inherit premium status from an old or different user!
+    // For new registrations or different users, premium is ALWAYS false.
     const keepPremium =
       !isNewRegistration && isSameUser && existing?.isPremium === true;
+
+    if (token) {
+      localStorage.setItem("dca_token", token);
+    } else if (!isSameUser || isNewRegistration) {
+      localStorage.removeItem("dca_token");
+      try {
+        sessionStorage.removeItem("dca_last_txnid");
+        sessionStorage.removeItem("payment-status");
+      } catch {}
+    }
+
+    const resolvedToken = token || (!isNewRegistration && isSameUser ? existing?.token : undefined);
+    const resolvedId = userId || (!isNewRegistration && isSameUser ? existing?.id : undefined);
+    const resolvedRole = role || (!isNewRegistration && isSameUser ? existing?.role : undefined) || "ARTIST";
+
+    if (isNewRegistration) {
+      localStorage.removeItem("dca_artist_profile");
+      localStorage.removeItem("dca_brand_profile");
+    }
 
     localStorage.setItem(
       "dca_user",
       JSON.stringify({
+        id: resolvedId,
         identifier: emailOrPhone,
         email: emailOrPhone,
         isLoggedIn: true,
         loginTime: new Date().toISOString(),
-        role: role || existing?.role || "artist",
+        role: resolvedRole,
+        token: resolvedToken,
         isPremium: keepPremium,
         premiumEntitlement: keepPremium ? existing?.premiumEntitlement : undefined,
       })
@@ -86,7 +121,7 @@ export function setDCAUserSession(
   }
 }
 
-export function setUserRole(role: "artist" | "brand") {
+export function setUserRole(role: "artist" | "brand" | "admin" | "ARTIST" | "BRAND" | "ADMIN") {
   if (typeof window !== "undefined") {
     const existing = getUserSession();
     if (!existing || !existing.isLoggedIn) return;
@@ -106,39 +141,130 @@ export function setUserPremiumStatus(
     plan: "ARTIST_PREMIUM" | "BRAND_PREMIUM";
     amount: number;
     paymentId: string;
+    startedAt?: string;
+    expiresAt?: string;
   }
 ) {
   if (typeof window !== "undefined") {
     const existing = getUserSession();
     if (!existing || !existing.isLoggedIn) return;
 
-    let entitlement: PremiumEntitlement | undefined = existing.premiumEntitlement;
+    let entitlement: PremiumEntitlement | undefined = undefined;
+    let verifiedPremium = false;
 
-    if (isPremium) {
-      const now = new Date();
-      const expiresAt = new Date(now);
-      expiresAt.setMonth(expiresAt.getMonth() + 3);
+    if (isPremium && details) {
+      const isBrandUser =
+        existing.role === "brand" || existing.role === "BRAND";
+      const expectedPlan = isBrandUser ? "BRAND_PREMIUM" : "ARTIST_PREMIUM";
 
-      entitlement = {
-        plan: details?.plan || (existing.role === "brand" ? "BRAND_PREMIUM" : "ARTIST_PREMIUM"),
-        amount: details?.amount || (existing.role === "brand" ? 9999 : 1999),
-        duration: "3_months",
-        startedAt: entitlement?.startedAt || now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-        paymentId: details?.paymentId || `WTB-VERIFIED-${Date.now().toString().slice(-6)}`,
-      };
-    } else {
-      entitlement = undefined;
+      // SECURITY GUARD: Entitlement plan MUST strictly match user role
+      if (details.plan === expectedPlan) {
+        verifiedPremium = true;
+        const now = details.startedAt ? new Date(details.startedAt) : new Date();
+        const expiresAt = details.expiresAt
+          ? new Date(details.expiresAt)
+          : new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+        entitlement = {
+          plan: details.plan,
+          amount: details.amount,
+          duration: "3_months",
+          startedAt: now.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          paymentId: details.paymentId || `WTB-VERIFIED-${Date.now().toString().slice(-6)}`,
+        };
+      }
     }
 
     localStorage.setItem(
       "dca_user",
       JSON.stringify({
         ...existing,
-        isPremium,
+        isPremium: verifiedPremium,
         premiumEntitlement: entitlement,
       })
     );
+  }
+}
+
+/**
+ * Queries real backend /api/payments/my-entitlement API to sync premium status.
+ */
+export async function fetchBackendEntitlement(): Promise<{
+  isPremium: boolean;
+  entitlement: PremiumEntitlement | null;
+}> {
+  const token = getAuthToken();
+  const session = getUserSession();
+
+  // If no auth token or no active user session, user cannot have verified premium
+  if (!token || !session) {
+    setUserPremiumStatus(false);
+    return { isPremium: false, entitlement: null };
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/api/payments/my-entitlement`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      setUserPremiumStatus(false);
+      return { isPremium: false, entitlement: null };
+    }
+
+    const data = (await response.json()) as {
+      success: boolean;
+      isPremium?: boolean;
+      entitlement?: {
+        plan: "ARTIST_PREMIUM" | "BRAND_PREMIUM";
+        amount: number;
+        paymentId?: string;
+        id?: string;
+        startedAt: string;
+        expiresAt: string;
+      } | null;
+    };
+
+    const isBrandUser = session.role === "brand" || session.role === "BRAND";
+    const expectedPlan = isBrandUser ? "BRAND_PREMIUM" : "ARTIST_PREMIUM";
+
+    // Strictly verify backend entitlement authenticity and role-plan alignment:
+    if (
+      data.success &&
+      data.isPremium === true &&
+      data.entitlement &&
+      data.entitlement.plan === expectedPlan
+    ) {
+      setUserPremiumStatus(true, {
+        plan: data.entitlement.plan,
+        amount: data.entitlement.amount,
+        paymentId: data.entitlement.paymentId || data.entitlement.id || "WTB-VERIFIED",
+        startedAt: data.entitlement.startedAt,
+        expiresAt: data.entitlement.expiresAt,
+      });
+      return {
+        isPremium: true,
+        entitlement: {
+          plan: data.entitlement.plan,
+          amount: data.entitlement.amount,
+          duration: "3_months",
+          startedAt: data.entitlement.startedAt,
+          expiresAt: data.entitlement.expiresAt,
+          paymentId: data.entitlement.paymentId || data.entitlement.id || "WTB-VERIFIED",
+        },
+      };
+    }
+
+    // Backend confirms no active entitlement for this user/plan
+    setUserPremiumStatus(false);
+    return { isPremium: false, entitlement: null };
+  } catch {
+    // Network error: never grant unverified premium
+    setUserPremiumStatus(false);
+    return { isPremium: false, entitlement: null };
   }
 }
 
@@ -221,5 +347,31 @@ export function getUserProfileStatus(): ProfileStatus {
 export function clearDCAUserSession() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("dca_user");
+    localStorage.removeItem("dca_token");
+    try {
+      sessionStorage.removeItem("dca_last_txnid");
+      sessionStorage.removeItem("payment-status");
+    } catch {}
   }
+}
+
+/**
+ * Executes server-side logout call to POST /api/auth/logout then clears local session.
+ */
+export async function logoutDCAUserSession(): Promise<void> {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      await fetch(`${API_URL}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+    } catch {
+      // Ignore network errors so client session is always cleared cleanly
+    }
+  }
+  clearDCAUserSession();
 }

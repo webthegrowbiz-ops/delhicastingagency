@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
-import { Sparkles, Clapperboard, Film, ShieldCheck } from "lucide-react";
+import { Sparkles, Clapperboard, Film, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { CTASection } from "@/components/ui/cta-section";
+import { API_URL } from "@/config/env";
 import type { CastingCallItem } from "@/data/casting-calls";
 import { CastingCallCard } from "@/components/casting-calls/CastingCallCard";
 import { CastingFilters } from "@/components/casting-calls/CastingFilters";
@@ -17,9 +18,87 @@ interface CastingCallListingViewProps {
   title: string;
   description: string;
   heroBannerImage?: string;
-  initialCalls: CastingCallItem[];
+  initialCalls?: CastingCallItem[];
   defaultCategoryFilter?: string;
   breadcrumbs: { label: string; href?: string }[];
+}
+
+interface RawBackendCastingCall {
+  id: string;
+  title: string;
+  description: string;
+  category?: string | null;
+  location?: string | null;
+  compensation?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  ageMin?: number | null;
+  ageMax?: number | null;
+  gender?: string | null;
+  requirements?: string | null;
+  approvalStatus: string;
+  brand?: {
+    id?: string;
+    email?: string;
+    brandProfile?: {
+      companyName?: string;
+      companyLogo?: string;
+    };
+  };
+}
+
+function mapBackendCastingToUI(call: RawBackendCastingCall): CastingCallItem {
+  const ageRange =
+    call.ageMin && call.ageMax
+      ? `${call.ageMin}-${call.ageMax} Yrs`
+      : call.ageMin
+      ? `${call.ageMin}+ Yrs`
+      : call.ageMax
+      ? `Up to ${call.ageMax} Yrs`
+      : "All Ages";
+
+  const formattedDeadline = call.endDate
+    ? new Date(call.endDate).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Open Auditions";
+
+  const defaultImages = [
+    "/images/actors/female actor model web series.png",
+    "/images/actors/male lead actor feature flim actions.png",
+    "/images/actors/traditional male actor casting.png",
+    "/images/actors/fresh face female actor audition.png",
+  ];
+  const charCodeSum = (call.id || "").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const fallbackImage = defaultImages[charCodeSum % defaultImages.length];
+
+  return {
+    id: call.id,
+    slug: call.id,
+    title: call.title,
+    category: call.category || "General",
+    categorySlug: (call.category || "general").toLowerCase().replace(/\s+/g, "-"),
+    productionType: call.brand?.brandProfile?.companyName || "Verified Production",
+    location: call.location || "Mumbai, India",
+    gender: call.gender || "Any Gender",
+    ageRange: ageRange,
+    status: call.approvalStatus === "APPROVED" ? "VERIFIED" : "OPEN",
+    deadline: formattedDeadline,
+    compensation: call.compensation || "Paid Opportunity",
+    description: call.description,
+    roleDetails: call.description,
+    requirements: call.requirements
+      ? call.requirements.split("\n").filter((r) => r.trim())
+      : ["Verified audition profile required", "Professional attitude"],
+    whatToPrepare: [
+      "Latest portfolio headshots",
+      "Self-tape audition clip",
+      "Updated acting resume / CV",
+    ],
+    image: call.brand?.brandProfile?.companyLogo || fallbackImage,
+  };
 }
 
 export function CastingCallListingView({
@@ -27,53 +106,95 @@ export function CastingCallListingView({
   title,
   description,
   heroBannerImage = "/media/dca/about/dca-about-hero-01.jpg",
-  initialCalls,
   defaultCategoryFilter = "All",
   breadcrumbs,
 }: CastingCallListingViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>(defaultCategoryFilter);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  
+
+  const [calls, setCalls] = useState<CastingCallItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [selectedDetailCall, setSelectedDetailCall] = useState<CastingCallItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
 
   const [selectedApplyCall, setSelectedApplyCall] = useState<CastingCallItem | null>(null);
   const [isApplyOpen, setIsApplyOpen] = useState<boolean>(false);
 
-  // Extract filter categories merged with gender options
   const categoriesList = useMemo(() => {
-    const list: string[] = ["All", "Female", "Male", "Any Gender"];
-    initialCalls.forEach((c) => {
-      if (c.category && !list.includes(c.category)) {
-        list.push(c.category);
+    return [
+      "All",
+      "Female",
+      "Male",
+      "Any Gender",
+      "Actors",
+      "Models",
+      "Bollywood Feature Films",
+      "OTT Web Series",
+      "TV Commercials",
+    ];
+  }, []);
+
+  const fetchCastingCalls = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+
+      if (selectedCategory && selectedCategory !== "All") {
+        const genderFilters = ["female", "male", "any gender"];
+        if (genderFilters.includes(selectedCategory.toLowerCase())) {
+          params.append("gender", selectedCategory);
+        } else {
+          params.append("category", selectedCategory);
+        }
       }
-    });
-    return list;
-  }, [initialCalls]);
 
-  // Filter calls
-  const filteredCalls = useMemo(() => {
-    const genderFilters = ["female", "male", "any gender"];
-    return initialCalls.filter((call) => {
-      const isGenderFilter = genderFilters.includes(selectedCategory.toLowerCase());
+      if (searchQuery.trim()) {
+        params.append("search", searchQuery.trim());
+      }
 
-      const matchCat =
-        selectedCategory === "All"
-          ? true
-          : isGenderFilter
-          ? call.gender.toLowerCase().includes(selectedCategory.toLowerCase())
-          : call.category.toLowerCase() === selectedCategory.toLowerCase();
+      const queryString = params.toString();
+      const url = `${API_URL}/api/casting${queryString ? `?${queryString}` : ""}`;
 
-      const matchQuery =
-        !searchQuery ||
-        call.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        call.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        call.productionType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        call.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const res = await fetch(url);
 
-      return matchCat && matchQuery;
-    });
-  }, [initialCalls, selectedCategory, searchQuery]);
+      if (!res.ok) {
+        throw new Error(`Failed to load casting calls (HTTP ${res.status})`);
+      }
+
+      const data = (await res.json()) as {
+        success: boolean;
+        message?: string;
+        castings?: RawBackendCastingCall[];
+      };
+
+      if (data.success && Array.isArray(data.castings)) {
+        const mapped = data.castings.map(mapBackendCastingToUI);
+        setCalls(mapped);
+      } else {
+        throw new Error(data.message || "Invalid API response structure");
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Network error. Unable to connect to DCA backend.";
+      setError(msg);
+      setCalls([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedCategory, searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchCastingCalls();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchCastingCalls]);
 
   const handleOpenDetails = (item: CastingCallItem) => {
     setSelectedDetailCall(item);
@@ -91,12 +212,10 @@ export function CastingCallListingView({
       <section className="relative isolate overflow-hidden border-b border-gray-200 bg-[#F7F7F5] px-4 sm:px-6 lg:px-8 pb-12 pt-28 sm:pb-16 sm:pt-36">
         <div className="mx-auto max-w-7xl">
           <Reveal>
-            {/* 1. Eyebrow */}
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d4af37] mb-3">
               {eyebrow}
             </p>
 
-            {/* 2. WIDE HORIZONTAL CASTING IMAGE / BANNER */}
             <div className="relative w-full aspect-[21/7] max-h-[260px] sm:max-h-[300px] rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-200 shadow-md mb-6 bg-gray-100">
               <Image
                 src={heroBannerImage}
@@ -109,12 +228,10 @@ export function CastingCallListingView({
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
             </div>
 
-            {/* 3. Main H1 Title */}
             <h1 className="max-w-4xl text-3xl sm:text-5xl md:text-6xl font-bold leading-[1.1] tracking-tight text-[#111111]">
               {title}
             </h1>
 
-            {/* 4. Description */}
             <p className="mt-4 max-w-3xl text-base sm:text-lg font-normal leading-relaxed text-[#444444]">
               {description}
             </p>
@@ -155,10 +272,46 @@ export function CastingCallListingView({
           onSearchChange={setSearchQuery}
         />
 
-        {/* 3-Col Desktop, 2-Col Tablet, 1-Col Mobile Grid */}
-        {filteredCalls.length > 0 ? (
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 items-stretch py-8">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-3xl border border-gray-200 bg-white p-6 h-[420px] flex flex-col justify-between"
+              >
+                <div className="space-y-4">
+                  <div className="h-4 bg-gray-200 rounded w-1/3" />
+                  <div className="h-40 bg-gray-200 rounded-2xl w-full" />
+                  <div className="h-6 bg-gray-200 rounded w-3/4" />
+                  <div className="h-16 bg-gray-100 rounded-2xl w-full" />
+                  <div className="h-10 bg-gray-100 rounded w-full" />
+                </div>
+                <div className="h-10 bg-gray-200 rounded-xl w-full mt-4" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          /* Error State */
+          <div className="p-8 sm:p-12 text-center rounded-3xl bg-amber-50/70 border border-amber-200 text-amber-900 my-6 shadow-xs">
+            <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
+            <h3 className="text-xl font-bold text-amber-950 mb-2">Unable to Load Casting Calls</h3>
+            <p className="text-sm text-amber-800 max-w-md mx-auto mb-5 leading-relaxed">
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={() => fetchCastingCalls()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#d4af37] text-white font-semibold text-xs hover:bg-[#c59b27] transition-all shadow-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Retry Connection</span>
+            </button>
+          </div>
+        ) : calls.length > 0 ? (
+          /* Real Approved Casting Call Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 items-stretch">
-            {filteredCalls.map((item, index) => (
+            {calls.map((item, index) => (
               <Reveal key={item.id} delay={index * 0.05} className="h-full">
                 <CastingCallCard
                   item={item}
@@ -169,11 +322,12 @@ export function CastingCallListingView({
             ))}
           </div>
         ) : (
+          /* Empty State */
           <div className="p-12 text-center rounded-3xl bg-[#F7F7F5] border border-gray-200 text-[#555555]">
             <Clapperboard className="w-12 h-12 text-[#d4af37] mx-auto mb-3" />
-            <h3 className="text-xl font-bold text-[#111111] mb-2">No Casting Calls Found</h3>
-            <p className="text-sm text-[#555555] max-w-md mx-auto">
-              No live casting calls match your current filter selection. Try clearing filters or searching another keyword.
+            <h3 className="text-xl font-bold text-[#111111] mb-2">No Approved Casting Calls Found</h3>
+            <p className="text-sm text-[#555555] max-w-md mx-auto leading-relaxed">
+              There are currently no approved casting calls matching your selected category or search filter.
             </p>
             <button
               type="button"
@@ -181,7 +335,7 @@ export function CastingCallListingView({
                 setSelectedCategory("All");
                 setSearchQuery("");
               }}
-              className="mt-5 px-5 py-2.5 rounded-xl bg-[#d4af37] text-white font-semibold text-xs hover:bg-[#c59b27] transition-all"
+              className="mt-5 px-5 py-2.5 rounded-xl bg-[#d4af37] text-white font-semibold text-xs hover:bg-[#c59b27] transition-all shadow-sm"
             >
               Reset All Filters
             </button>
@@ -263,6 +417,7 @@ export function CastingCallListingView({
         onClose={() => setIsApplyOpen(false)}
         castingTitle={selectedApplyCall?.title}
         castingCategory={selectedApplyCall?.category}
+        castingCallId={selectedApplyCall?.id}
       />
     </main>
   );

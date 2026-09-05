@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, Playfair_Display } from "next/font/google";
+import { Manrope, Playfair_Display, Great_Vibes } from "next/font/google";
 
 import "./globals.css";
 
@@ -21,6 +21,13 @@ const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+});
+
+const greatVibes = Great_Vibes({
+  variable: "--font-cursive",
+  subsets: ["latin"],
+  weight: ["400"],
   display: "swap",
 });
 
@@ -110,7 +117,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${playfair.variable} font-sans`}
+      className={`${manrope.variable} ${playfair.variable} ${greatVibes.variable} font-sans`}
     >
       <head>
         <script

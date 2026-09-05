@@ -10,6 +10,7 @@ import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/lib/site-navigation";
 import { AccountTypeModal } from "@/components/auth/AccountTypeModal";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 function DesktopDropdown({ group }: { group: NavGroup }) {
   const [hoveredItem, setHoveredItem] = useState<NavItem | null>(null);
@@ -18,7 +19,7 @@ function DesktopDropdown({ group }: { group: NavGroup }) {
     return (
       <Link
         href={group.href}
-        className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.14em] text-[#111111] transition duration-200 hover:text-[#D4AF37]"
+        className="whitespace-nowrap text-[11px] lg:text-[11.5px] xl:text-[12px] 2xl:text-[12.5px] font-semibold uppercase tracking-[0.08em] xl:tracking-[0.12em] text-[#111111] transition duration-200 hover:text-[#D4AF37]"
       >
         {group.label}
       </Link>
@@ -31,13 +32,13 @@ function DesktopDropdown({ group }: { group: NavGroup }) {
   const previewDesc = activeItem?.description || group.defaultDescription || "";
 
   return (
-    <div className="group relative">
+    <div className="group relative flex items-center">
       <Link
         href={group.href}
-        className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.14em] text-[#111111] transition duration-200 hover:text-[#D4AF37]"
+        className="inline-flex items-center gap-1 xl:gap-1.5 whitespace-nowrap text-[11px] lg:text-[11.5px] xl:text-[12px] 2xl:text-[12.5px] font-semibold uppercase tracking-[0.08em] xl:tracking-[0.12em] text-[#111111] transition duration-200 hover:text-[#D4AF37]"
       >
         <span>{group.label}</span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#D4AF37] transition duration-200 group-hover:rotate-180" />
+        <ChevronDown className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-[#D4AF37] transition duration-200 group-hover:rotate-180" />
       </Link>
 
       <div className="pointer-events-none absolute left-1/2 top-full w-[620px] -translate-x-1/2 translate-y-2 pt-3 opacity-0 transition-all duration-300 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 z-50">
@@ -178,67 +179,83 @@ export function Navbar() {
 
   return (
     <>
-      <motion.header
-        initial={{ y: -60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      <header
         className={cn(
-          "fixed inset-x-0 top-0 z-50 w-full transition-all duration-500",
+          "fixed inset-x-0 top-0 z-50 w-full transition-all duration-300",
           scrolled
-            ? "border-b border-gray-200/80 bg-white/95 py-1 shadow-md backdrop-blur-md"
-            : "bg-white/85 py-2 backdrop-blur-xs"
+            ? "border-b border-gray-200/90 bg-white/95 py-1.5 shadow-md backdrop-blur-md"
+            : "border-b border-gray-100/80 bg-white/95 py-2 shadow-xs backdrop-blur-md"
         )}
       >
-        <div className="mx-auto flex h-20 w-full max-w-[1550px] items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-10">
+        <div className="mx-auto flex h-20 w-full max-w-[1600px] items-center px-4 sm:px-6 lg:px-8 xl:px-8 2xl:px-10">
           
-          {/* LOGO & BRAND NAME */}
-          <Link
-            href="/"
-            aria-label="Delhi Casting Agency home"
-            onClick={closeMobile}
-            className="shrink-0 transition duration-300 hover:opacity-90"
-          >
-            <Logo />
-          </Link>
-
-          {/* DESKTOP NAVIGATION */}
-          <nav
-            className="hidden items-center gap-4 xl:flex 2xl:gap-6"
-            aria-label="Main navigation"
-          >
-            {NAV_GROUPS.map((group) => (
-              <DesktopDropdown key={group.label} group={group} />
-            ))}
-          </nav>
-
-          {/* DESKTOP ACTIONS: LOGIN & REGISTER NOW */}
-          <div className="hidden items-center gap-4 lg:flex">
-            <motion.div
-              whileHover={{ y: -1, scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          {/* =========================================================
+              1. LEFT: BRAND SECTION (LOGO + BRAND NAME)
+          ========================================================= */}
+          <div className="flex items-center shrink-0">
+            <Link
+              href="/"
+              aria-label="Delhi Casting Agency home"
+              onClick={closeMobile}
+              className="shrink-0 transition duration-300 hover:opacity-90 flex items-center"
             >
-              <Link
-                href="/login"
-                className="group whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.14em] text-[#111111] transition duration-200 hover:text-[#D4AF37] flex items-center gap-1.5"
+              <Logo />
+            </Link>
+          </div>
+
+          {/* =========================================================
+              2. DESKTOP UNIFIED EQUAL-ALIGNMENT ROW
+          ========================================================= */}
+          <div className="hidden lg:flex items-center justify-between flex-1 ml-4 lg:ml-6 xl:ml-8 2xl:ml-10">
+            
+            {/* MIDDLE: EVENLY DISTRIBUTED NAVIGATION LINKS */}
+            <nav
+              className="flex items-center justify-between flex-1 max-w-[760px] 2xl:max-w-[840px] pr-2 lg:pr-4 xl:pr-6"
+              aria-label="Main navigation"
+            >
+              {NAV_GROUPS.map((group) => (
+                <DesktopDropdown key={group.label} group={group} />
+              ))}
+            </nav>
+
+            {/* RIGHT: BALANCED ACTIONS SECTION */}
+            <div className="flex items-center gap-2.5 lg:gap-3 xl:gap-4 2xl:gap-5 shrink-0 pl-1 lg:pl-2">
+              {/* NOTIFICATION BELL */}
+              <div className="flex items-center shrink-0">
+                <NotificationBell />
+              </div>
+
+              {/* ACCOUNT SECONDARY CTA */}
+              <motion.div
+                whileHover={{ y: -1, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="shrink-0 flex items-center"
               >
-                <User className="h-3.5 w-3.5 text-[#D4AF37] transition-transform duration-200 group-hover:scale-110" />
-                <span>Login</span>
-                <ArrowRight className="h-3.5 w-3.5 opacity-0 -ml-1 transition-all duration-300 group-hover:opacity-100 group-hover:ml-0.5 text-[#D4AF37]" />
-              </Link>
-            </motion.div>
+                <Link
+                  href="/login"
+                  className="group inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-[#F7F7F5] px-2.5 lg:px-3.5 xl:px-4 py-1.5 xl:py-2 text-[10.5px] lg:text-[11px] xl:text-[11.5px] 2xl:text-[12px] font-bold uppercase tracking-[0.1em] xl:tracking-[0.14em] text-[#111111] shadow-2xs transition-all duration-300 hover:border-[#D4AF37]/60 hover:bg-white hover:text-[#D4AF37] hover:shadow-xs whitespace-nowrap"
+                >
+                  <User className="h-3.5 w-3.5 text-[#D4AF37] transition-transform duration-300 group-hover:scale-108 shrink-0" />
+                  <span>Account</span>
+                  <ArrowRight className="h-3.5 w-3.5 opacity-0 -ml-1.5 transition-all duration-300 group-hover:opacity-100 group-hover:ml-0 text-[#D4AF37] shrink-0" />
+                </Link>
+              </motion.div>
 
-            <motion.button
-              type="button"
-              whileHover={{ y: -2, scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              onClick={handleRegisterNowClick}
-              className="group flex items-center gap-2 rounded-full border-2 border-[#D4AF37] bg-white px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.16em] text-[#111111] transition duration-300 hover:border-[#D4AF37] hover:bg-[#D4AF37] hover:text-white shadow-xs hover:shadow-md hover:shadow-[#D4AF37]/20 whitespace-nowrap cursor-pointer"
-            >
-              <span>REGISTER NOW</span>
-              <ArrowRight className="h-3.5 w-3.5 transition duration-300 group-hover:translate-x-1.5 text-[#D4AF37] group-hover:text-white" />
-            </motion.button>
+              {/* REGISTER NOW PRIMARY CTA */}
+              <motion.button
+                type="button"
+                whileHover={{ y: -2, scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                onClick={handleRegisterNowClick}
+                className="group flex items-center gap-1.5 lg:gap-2 rounded-full border-2 border-[#D4AF37] bg-white px-3 lg:px-3.5 xl:px-4.5 py-1.5 lg:py-2 xl:py-2.5 text-[10.5px] lg:text-[11px] xl:text-[11.5px] 2xl:text-[12px] font-bold uppercase tracking-[0.12em] xl:tracking-[0.16em] text-[#111111] transition duration-300 hover:border-[#D4AF37] hover:bg-[#D4AF37] hover:text-white shadow-xs hover:shadow-md hover:shadow-[#D4AF37]/20 whitespace-nowrap cursor-pointer shrink-0"
+              >
+                <span>REGISTER NOW</span>
+                <ArrowRight className="h-3.5 w-3.5 transition duration-300 group-hover:translate-x-1.5 text-[#D4AF37] group-hover:text-white shrink-0" />
+              </motion.button>
+            </div>
+
           </div>
 
           {/* MOBILE MENU TOGGLE BUTTON */}
@@ -248,7 +265,7 @@ export function Navbar() {
             aria-expanded={mobileOpen}
             aria-controls="mobile-navigation"
             onClick={toggleMobile}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-[#111111] transition hover:bg-gray-100 xl:hidden"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-[#111111] transition hover:bg-gray-100 lg:hidden ml-auto"
           >
             {mobileOpen ? (
               <X size={26} strokeWidth={1.8} />
@@ -257,7 +274,7 @@ export function Navbar() {
             )}
           </button>
         </div>
-      </motion.header>
+      </header>
 
       {/* MOBILE MENU DRAWER */}
       <AnimatePresence>
@@ -268,7 +285,7 @@ export function Navbar() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-white px-6 pb-12 pt-28 xl:hidden"
+            className="fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-white px-6 pb-12 pt-28 lg:hidden"
           >
             <div className="mx-auto w-full max-w-lg">
               <nav className="space-y-2" aria-label="Mobile navigation">

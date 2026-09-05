@@ -1,7 +1,9 @@
 node_modules
 .next
 out
-.env*.local
+.env
+.env.*
+!.env.example
 *.log
 .DS_Store
 
@@ -9,4 +11,6 @@ out
 *.zip
 .postman/
 postman/
-npm
+npm*.tsbuildinfo
+*.tsbuildinfo
+*.tsbuildinfo

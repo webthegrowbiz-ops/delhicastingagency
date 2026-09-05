@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, CheckCircle2, ShieldCheck } from "lucide-react";
 
@@ -9,28 +9,96 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
 
+import { fetchBackendEntitlement, getUserSession } from "@/lib/auth";
+
 export default function PaymentSuccessPage() {
   const router = useRouter();
 
-  /*
-   * Frontend-only payment status check.
-   *
-   * No backend.
-   * No API.
-   * No Razorpay.
-   *
-   * If the user opens this page directly without completing
-   * the simulated payment flow, redirect them back to payment.
-   *
-   * IMPORTANT:
-   * There is no setState() inside this effect, so the React
-   * cascading-render warning is avoided.
-   */
-  useEffect(() => {
-    const paymentStatus = sessionStorage.getItem("payment-status");
+  const [isBrand, setIsBrand] = useState(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const planParam = searchParams.get("plan");
+      if (planParam && planParam.toLowerCase().includes("brand")) {
+        return true;
+      }
+      const session = getUserSession();
+      return (
+        session?.role?.toLowerCase() === "brand" ||
+        session?.premiumEntitlement?.plan === "BRAND_PREMIUM"
+      );
+    }
+    return false;
+  });
 
-    if (paymentStatus !== "success") {
-      router.replace("/payment/");
+  const [txnId, setTxnId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      return (
+        searchParams.get("txnId") ||
+        searchParams.get("txnid") ||
+        sessionStorage.getItem("dca_last_txnid") ||
+        ""
+      );
+    }
+    return "";
+  });
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const statusParam = searchParams.get("status");
+    const txnIdParam = searchParams.get("txnId") || searchParams.get("txnid");
+    const planParam = searchParams.get("plan");
+
+    const session = getUserSession();
+    const brandDetected =
+      (planParam && planParam.toLowerCase().includes("brand")) ||
+      session?.role?.toLowerCase() === "brand" ||
+      session?.premiumEntitlement?.plan === "BRAND_PREMIUM";
+
+    if (brandDetected) {
+      setIsBrand(true);
+    }
+
+    if (txnIdParam) {
+      setTxnId(txnIdParam);
+      sessionStorage.setItem("dca_last_txnid", txnIdParam);
+    } else {
+      const savedTxn =
+        sessionStorage.getItem("dca_last_txnid") ||
+        session?.premiumEntitlement?.paymentId;
+      if (savedTxn) {
+        setTxnId(savedTxn);
+      }
+    }
+
+    if (statusParam === "success" || statusParam === "paid" || txnIdParam) {
+      sessionStorage.setItem("payment-status", "success");
+      fetchBackendEntitlement()
+        .then((res) => {
+          if (res.entitlement?.plan === "BRAND_PREMIUM") {
+            setIsBrand(true);
+          }
+          if (res.entitlement?.paymentId && !txnIdParam) {
+            setTxnId(res.entitlement.paymentId);
+          }
+        })
+        .catch(() => {});
+    } else {
+      const paymentStatus = sessionStorage.getItem("payment-status");
+      if (paymentStatus !== "success" && !session?.isPremium) {
+        router.replace("/payment/");
+      } else {
+        fetchBackendEntitlement()
+          .then((res) => {
+            if (res.entitlement?.plan === "BRAND_PREMIUM") {
+              setIsBrand(true);
+            }
+            if (res.entitlement?.paymentId && !txnIdParam) {
+              setTxnId(res.entitlement.paymentId);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, [router]);
 
@@ -42,8 +110,12 @@ export default function PaymentSuccessPage() {
 
       <PageHero
         eyebrow="Payment Confirmation"
-        title="Registration Completed"
-        description="Your frontend registration flow has been completed successfully."
+        title="Payment Successful"
+        description={
+          isBrand
+            ? "Your Brand Premium Casting Account has been activated successfully."
+            : "Your Artist Premium membership has been activated successfully."
+        }
       />
 
       {/* ================================================================ */}
@@ -98,13 +170,13 @@ export default function PaymentSuccessPage() {
             </p>
 
             <h1 className="mx-auto mt-4 max-w-2xl font-bold tracking-tight text-3xl text-[#111111] md:text-5xl">
-              Your registration journey is complete.
+              Payment Successful
             </h1>
 
             <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-[#444444]">
-              Your registration information has been saved for this frontend
-              demonstration flow. Continue to the community access page for the
-              next step.
+              {isBrand
+                ? "Your Brand Premium Casting Account has been activated successfully."
+                : "Your Artist Premium membership has been activated successfully."}
             </p>
 
             {/* ========================================================== */}
@@ -116,21 +188,31 @@ export default function PaymentSuccessPage() {
                 <CheckCircle2 className="h-5 w-5 text-[#D4AF37]" />
 
                 <h2 className="font-semibold text-[#111111]">
-                  Registration Confirmation
+                  Payment Confirmation
                 </h2>
               </div>
 
               <div className="mt-5 space-y-4">
                 <ConfirmationItem
-                  label="Artist Registration"
-                  value="Completed"
+                  label="Membership Plan"
+                  value={isBrand ? "Brand Premium" : "Artist Premium"}
                 />
 
-                <ConfirmationItem label="Artist Profile" value="Completed" />
+                <ConfirmationItem
+                  label="Payment Details"
+                  value={
+                    isBrand
+                      ? "₹9,999 paid • 3 months / 90 days"
+                      : "₹1,999 paid • 3 months / 90 days"
+                  }
+                />
 
-                <ConfirmationItem label="Payment Flow" value="Successful" />
+                <ConfirmationItem
+                  label="Transaction ID"
+                  value={txnId || "Verified"}
+                />
 
-                <ConfirmationItem label="Next Step" value="Community Access" />
+                <ConfirmationItem label="Status" value="Active / Confirmed" />
               </div>
             </div>
 
@@ -143,24 +225,24 @@ export default function PaymentSuccessPage() {
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#D4AF37]" />
 
                 <p className="text-sm leading-7 text-[#444444]">
-                  This is a frontend-only payment confirmation interface. No
-                  real payment gateway or backend payment verification is
-                  connected.
+                  {isBrand
+                    ? "Your 90-day Brand Premium Casting Account is now active and verified on Delhi Casting Agency."
+                    : "Your 90-day Premium membership is now active and verified on Delhi Casting Agency."}
                 </p>
               </div>
             </div>
 
             {/* ========================================================== */}
-            {/* COMMUNITY ACCESS BUTTON                                      */}
+            {/* DASHBOARD ACTION BUTTON                                      */}
             {/* ========================================================== */}
 
             <div className="mt-10 flex justify-center">
               <Button
                 type="button"
-                onClick={() => router.push("/community-access/")}
+                onClick={() => router.push("/dashboard/")}
                 className="group bg-[#D4AF37] text-white hover:bg-[#c59b27]"
               >
-                Continue to Community Access
+                Go to Dashboard
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Button>
             </div>

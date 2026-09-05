@@ -17,6 +17,8 @@ import { PageHero } from "@/components/ui/page-hero";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
+import { API_URL } from "@/config/env";
+import { getAuthToken, fetchBackendEntitlement } from "@/lib/auth";
 
 type PaymentMethod = "upi" | "card" | "netbanking";
 
@@ -46,30 +48,79 @@ export default function PaymentPage() {
     }
   }, [router]);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   /*
-   * Frontend-only payment simulation.
-   *
-   * IMPORTANT:
-   * This does NOT connect to Razorpay or any real payment gateway.
+   * Backend-connected payment processing.
    */
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (!agreed || processing) {
       return;
     }
 
     setProcessing(true);
+    setErrorMsg(null);
 
-    /*
-     * Save simulated payment status.
-     */
-    sessionStorage.setItem("payment-status", "success");
+    const token = getAuthToken();
+    if (!token) {
+      setErrorMsg("Authentication token required. Please login again.");
+      setProcessing(false);
+      return;
+    }
 
-    /*
-     * Simulate a short payment-processing state.
-     */
-    setTimeout(() => {
-      router.push("/payment/success/");
-    }, 1000);
+    try {
+      // 1. Create order on backend
+      const orderRes = await fetch(`${API_URL}/api/payments/create-order`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ plan: "ARTIST_PREMIUM" }),
+      });
+
+      const orderData = (await orderRes.json()) as {
+        success: boolean;
+        message?: string;
+        order?: { id: string };
+      };
+
+      if (!orderRes.ok || !orderData.success || !orderData.order) {
+        setErrorMsg(orderData.message || "Failed to create payment order.");
+        setProcessing(false);
+        return;
+      }
+
+      // 2. Verify payment on backend
+      const verifyRes = await fetch(`${API_URL}/api/payments/verify`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentId: orderData.order.id,
+        }),
+      });
+
+      const verifyData = (await verifyRes.json()) as {
+        success: boolean;
+        message?: string;
+      };
+
+      if (verifyRes.ok && verifyData.success) {
+        sessionStorage.setItem("payment-status", "success");
+        await fetchBackendEntitlement();
+        setProcessing(false);
+        router.push("/payment/success/");
+      } else {
+        setErrorMsg(verifyData.message || "Payment verification failed.");
+        setProcessing(false);
+      }
+    } catch {
+      setErrorMsg("Network error. Unable to process payment.");
+      setProcessing(false);
+    }
   };
 
   return (
@@ -282,6 +333,12 @@ export default function PaymentPage() {
                   membership does not guarantee casting selection or work.
                 </span>
               </label>
+
+              {errorMsg && (
+                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-center text-xs font-semibold text-red-700">
+                  {errorMsg}
+                </div>
+              )}
 
               {/* ======================================================== */}
               {/* PAYMENT BUTTON                                             */}

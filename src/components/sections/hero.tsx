@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 
 import { SITE } from "@/lib/constants";
 import { getProfileCreateOrSetupUrl } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+import { dancingScript } from "@/lib/fonts";
 
 export function Hero() {
   const router = useRouter();
@@ -49,8 +52,13 @@ export function Hero() {
               className="mb-6 text-base sm:text-lg uppercase tracking-[0.35em] text-[#444444] text-center"
             >
               WAY TO{" "}
-              <span className="block mt-2 text-4xl sm:text-5xl md:text-6xl font-[var(--font-fredoka)] font-bold tracking-wide text-[#111111]">
-                BOLLYWOOD
+              <span
+                className={cn(
+                  "block mt-1 text-5xl sm:text-6xl md:text-7xl lg:text-8xl tracking-normal text-[#111111] font-bold leading-tight capitalize select-none drop-shadow-xs",
+                  dancingScript.className
+                )}
+              >
+                Bollywood
               </span>
             </motion.p>
 
@@ -77,7 +85,7 @@ export function Hero() {
             >
               <motion.button
                 type="button"
-                onClick={() => router.push(getProfileCreateOrSetupUrl())}
+                onClick={() => router.push("/profile/setup")}
                 whileHover={{
                   y: -3,
                   scale: 1.03,
@@ -216,9 +224,9 @@ export function Hero() {
           ===================================================== */}
 
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, delay: 0.4 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
             className="relative flex w-full max-w-xl items-center justify-center -mt-6 sm:-mt-10 lg:-mt-16 xl:-mt-20"
           >
             {/* Ambient Radial Glow */}
@@ -238,19 +246,11 @@ export function Hero() {
                 }}
                 className="relative w-full"
               >
-                {/* INNER CARD — Smooth 180deg 3D Y-Axis Hover Rotation */}
+                {/* INNER CARD */}
                 <motion.div
-                  whileHover={{
-                    rotateY: -180,
-                  }}
-                  transition={{
-                    duration: 0.8,
-                    ease: "easeInOut",
-                  }}
-                  style={{
-                    transformStyle: "preserve-3d",
-                  }}
-                  className="relative w-full overflow-visible rounded-[32px] border border-gray-200 bg-white p-8 shadow-xl transform-gpu cursor-pointer"
+                  whileHover={{ scale: 1.01 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="relative w-full overflow-visible rounded-[32px] border border-gray-200 bg-white p-8 shadow-xl"
                 >
                   {/* 3 Columns Masonry Grid */}
                   <div className="grid grid-cols-3 gap-3 sm:gap-4">

@@ -13,7 +13,8 @@ import { PageHero } from "@/components/ui/page-hero";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
-import { setDCAUserSession } from "@/lib/auth";
+import { setDCAUserSession, getUserSession, getAuthToken } from "@/lib/auth";
+import { API_URL } from "@/config/env";
 
 const inputClass =
   "w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-[#111111] placeholder:text-gray-400 transition-all duration-300 focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#D4AF37]/15 shadow-xs";
@@ -51,14 +52,93 @@ export default function BrandRegisterPage() {
     setSubmitting(true);
 
     if (typeof window !== "undefined") {
-      setDCAUserSession(formData.email || formData.phone, "brand", true);
+      let token: string | undefined = undefined;
+      let userId: string | undefined = undefined;
+
+      const existingUser = getUserSession();
+      const existingToken = getAuthToken();
+
+      const normalizedEmail = (formData.email || "").trim().toLowerCase();
+
+      // If user is already authenticated with this exact email, preserve credentials
+      if (
+        existingUser &&
+        (existingUser.identifier === normalizedEmail || existingUser.email === normalizedEmail) &&
+        existingToken
+      ) {
+        token = existingToken;
+        userId = existingUser.id;
+      }
+
+      // If no token, register / login in background to get real backend JWT & userId
+      if (!token && normalizedEmail) {
+        try {
+          const regRes = await fetch(`${API_URL}/api/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: normalizedEmail,
+              password: "BrandPassword@123",
+              role: "BRAND",
+            }),
+          });
+          const regData = await regRes.json();
+          if (regRes.ok && regData.success && regData.token) {
+            token = regData.token;
+            userId = regData.user?.id;
+          } else if (regRes.status === 409) {
+            const loginRes = await fetch(`${API_URL}/api/auth/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: normalizedEmail,
+                password: "BrandPassword@123",
+              }),
+            });
+            const loginData = await loginRes.json();
+            if (loginRes.ok && loginData.success && loginData.token) {
+              token = loginData.token;
+              userId = loginData.user?.id;
+            }
+          }
+        } catch (err) {
+          console.warn("Brand auto-registration background attempt:", err);
+        }
+      }
+
+      // Persist BrandProfile directly to backend PostgreSQL so it immediately enters admin moderation
+      if (token) {
+        try {
+          await fetch(`${API_URL}/api/brand/profile`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              companyName: formData.companyName,
+              contactName: formData.fullName,
+              phone: formData.phone,
+              email: formData.email,
+              website: formData.website,
+              city: formData.city,
+              state: formData.state,
+              companyDescription: formData.description,
+            }),
+          });
+        } catch (err) {
+          console.warn("Failed to persist brand profile to backend:", err);
+        }
+      }
+
+      setDCAUserSession(normalizedEmail || formData.phone, "brand", true, token, userId);
 
       localStorage.setItem(
         "dca_brand_profile",
         JSON.stringify({
           formData,
           savedAt: new Date().toISOString(),
-          completionPercentage: 100,
+          completionPercentage: 90,
         })
       );
     }

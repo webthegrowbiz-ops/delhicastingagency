@@ -20,7 +20,8 @@ import { PageHero } from "@/components/ui/page-hero";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
-import { isUserAuthenticated, setDCAUserSession, setUserProfileStatus } from "@/lib/auth";
+import { isUserAuthenticated, setDCAUserSession, getUserSession, getAuthToken } from "@/lib/auth";
+import { API_URL } from "@/config/env";
 
 const inputClass =
   "w-full rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-[#111111] placeholder:text-gray-400 transition-all duration-300 focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#D4AF37]/15 shadow-xs";
@@ -109,6 +110,11 @@ export default function ProfileSetupPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const session = getUserSession();
+      if (session?.role === "brand" || session?.role === "BRAND") {
+        router.push("/dashboard");
+        return;
+      }
       const stored = localStorage.getItem("dca_artist_profile");
       if (stored) {
         try {
@@ -151,23 +157,100 @@ export default function ProfileSetupPage() {
     setPhotoFiles((prev) => ({ ...prev, [slotKey]: null }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaved(true);
 
     if (typeof window !== "undefined") {
-      setDCAUserSession(formData.email || formData.phone || "artist@example.com", "artist", true);
-      setUserProfileStatus("PENDING_REVIEW");
+      let token = getAuthToken();
+      let userId = getUserSession()?.id;
+
+      const normalizedEmail = (formData.email || "artist@example.com").trim().toLowerCase();
+
+      // If user doesn't have a backend token, register in background to get real JWT & user ID
+      if (!token) {
+        try {
+          const regRes = await fetch(`${API_URL}/api/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: normalizedEmail,
+              password: "ArtistPassword@123",
+              role: "ARTIST",
+            }),
+          });
+          const regData = await regRes.json();
+          if (regRes.ok && regData.success && regData.token) {
+            token = regData.token;
+            userId = regData.user?.id;
+          }
+        } catch (err) {
+          console.warn("Auto registration background attempt:", err);
+        }
+      }
+
+      // Store fresh authenticated Artist session and token
+      setDCAUserSession(normalizedEmail, "artist", true, token || undefined, userId || undefined);
+
+      // Save local profile backup for instant loading
       localStorage.setItem(
         "dca_artist_profile",
         JSON.stringify({
           formData,
           photoFiles,
-          status: "PENDING_REVIEW",
           savedAt: new Date().toISOString(),
           completionPercentage: 100,
         })
       );
+
+      // If token exists, sync to backend PostgreSQL
+      if (token) {
+        try {
+          const payload = {
+            fullName: formData.fullName.trim(),
+            phone: formData.phone.trim() || null,
+            gender: formData.gender || null,
+            dateOfBirth: formData.dob || null,
+            city: formData.city.trim() || null,
+            state: formData.state.trim() || null,
+            bio: formData.portfolioDescription.trim() || null,
+            height: formData.height.trim() || null,
+            weight: formData.weight.trim() || null,
+            chest: formData.chest.trim() || null,
+            waist: formData.waist.trim() || null,
+            hips: formData.hips.trim() || null,
+            languages: formData.languages.trim() || null,
+            skills: formData.skills.trim() || null,
+            specialAbilities: formData.specialSkills.trim() || null,
+            profilePhoto: photoFiles.frontPhoto || null,
+            headshots: [photoFiles.leftPhoto, photoFiles.rightPhoto, photoFiles.backPhoto]
+              .filter(Boolean)
+              .join(",") || null,
+          };
+
+          let profileRes = await fetch(`${API_URL}/api/artist/profile`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (profileRes.status === 409) {
+            profileRes = await fetch(`${API_URL}/api/artist/profile`, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(payload),
+            });
+          }
+        } catch (err) {
+          console.warn("Backend profile sync attempt:", err);
+        }
+      }
     }
 
     setTimeout(() => {

@@ -6,6 +6,12 @@ declare global {
   }
 }
 
+export interface RazorpayResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id?: string;
+  razorpay_signature?: string;
+}
+
 interface RazorpayOptions {
   key: string;
   amount: number;
@@ -15,11 +21,7 @@ interface RazorpayOptions {
   order_id?: string;
   prefill?: { name?: string; email?: string; contact?: string };
   theme?: { color?: string };
-  handler: (response: {
-    razorpay_payment_id: string;
-    razorpay_order_id?: string;
-    razorpay_signature?: string;
-  }) => void;
+  handler: (response: RazorpayResponse) => void;
   modal?: { ondismiss?: () => void };
 }
 
@@ -40,37 +42,59 @@ interface LaunchArgs {
   email: string;
   contact: string;
   amount?: number;
+  order_id?: string;
   description?: string;
-  onSuccess: (paymentId: string) => void;
+  onSuccess: (response: RazorpayResponse) => void;
   onDismiss?: () => void;
 }
 
 /**
  * Opens Razorpay Checkout for the membership fee.
- * Automatically falls back to simulated payment if Razorpay key is not configured.
  */
 export async function launchRazorpayCheckout({
   name,
   email,
   contact,
   amount = SITE.price,
+  order_id,
   description = "3-Month Premium Membership",
   onSuccess,
   onDismiss,
 }: LaunchArgs) {
-  // Gracefully simulate payment if Razorpay Key is not set in local environment
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // Production Protection: Never simulate checkout or use demo keys in production mode
   if (!RAZORPAY_KEY_ID) {
-    console.warn("Razorpay key not configured. Simulating successful checkout.");
+    if (isProduction) {
+      console.error("CRITICAL SECURITY ERROR: Razorpay Key ID is not configured in production environment.");
+      onDismiss?.();
+      return;
+    }
+
+    console.warn("Razorpay key not configured in development environment. Simulating UI checkout.");
     setTimeout(() => {
-      onSuccess(`WTB-DEMO-${Date.now().toString().slice(-6)}`);
+      onSuccess({
+        razorpay_payment_id: `pay_demo_${Date.now()}`,
+        razorpay_order_id: order_id || `order_demo_${Date.now()}`,
+        razorpay_signature: `sig_demo_${Date.now()}`,
+      });
     }, 600);
     return;
   }
 
   const loaded = await loadRazorpayScript();
   if (!loaded) {
+    if (isProduction) {
+      console.error("Could not load Razorpay SDK script from CDN.");
+      onDismiss?.();
+      return;
+    }
     console.warn("Could not load Razorpay script. Simulating fallback checkout.");
-    onSuccess(`WTB-FALLBACK-${Date.now().toString().slice(-6)}`);
+    onSuccess({
+      razorpay_payment_id: `pay_demo_${Date.now()}`,
+      razorpay_order_id: order_id || `order_demo_${Date.now()}`,
+      razorpay_signature: `sig_demo_${Date.now()}`,
+    });
     return;
   }
 
@@ -81,15 +105,24 @@ export async function launchRazorpayCheckout({
       currency: "INR",
       name: SITE.name,
       description,
+      order_id,
       prefill: { name, email, contact },
       theme: { color: "#d4af37" },
-      handler: (response) => onSuccess(response.razorpay_payment_id),
+      handler: (response) => onSuccess(response),
       modal: { ondismiss: onDismiss },
     });
 
     rzp.open();
   } catch (err) {
     console.error("Razorpay launch error:", err);
-    onSuccess(`WTB-SUCCESS-${Date.now().toString().slice(-6)}`);
+    if (!isProduction) {
+      onSuccess({
+        razorpay_payment_id: `pay_demo_${Date.now()}`,
+        razorpay_order_id: order_id || `order_demo_${Date.now()}`,
+        razorpay_signature: `sig_demo_${Date.now()}`,
+      });
+    } else {
+      onDismiss?.();
+    }
   }
 }
