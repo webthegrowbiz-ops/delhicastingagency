@@ -14,11 +14,11 @@ export function Closing() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.06),transparent_65%)]" />
 
       <Reveal>
-        <div className="relative mx-auto max-w-5xl px-6">
+        <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
           <motion.div
             whileHover={{ scale: 1.01 }}
             transition={{ duration: 0.35 }}
-            className="overflow-hidden rounded-[36px] border border-gray-200 bg-[#F7F7F5] p-8 text-center shadow-md backdrop-blur-xl md:p-14"
+            className="overflow-hidden rounded-3xl sm:rounded-[36px] border border-gray-200 bg-[#F7F7F5] p-6 sm:p-8 md:p-14 text-center shadow-md backdrop-blur-xl"
           >
             {/* Glow */}
             <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-[#D4AF37]/10 blur-[120px]" />

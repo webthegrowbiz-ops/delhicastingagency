@@ -92,20 +92,20 @@ export function Pricing() {
       {/* Background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(212,175,55,0.08),transparent_60%)]" />
 
-      <div className="relative mx-auto max-w-7xl px-6">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
         <Reveal>
           <div className="mx-auto max-w-3xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-5 py-2 text-sm font-medium text-[#D4AF37]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-medium text-[#D4AF37]">
               <Sparkles size={15} />
               Premium Membership
             </div>
 
-            <h2 className="mt-6 text-4xl font-bold leading-tight text-[#111111] md:text-6xl">
+            <h2 className="mt-6 text-3xl sm:text-4xl font-bold leading-tight text-[#111111] md:text-6xl">
               One Membership.
               <span className="block text-[#D4AF37]">3-Month Access.</span>
             </h2>
 
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#444444]">
+            <p className="mx-auto mt-5 sm:mt-6 max-w-2xl text-base sm:text-lg leading-7 sm:leading-8 text-[#444444]">
               Join our premium membership for 3 months and receive
               verified casting opportunities across Bollywood, OTT platforms,
               television, fashion and commercial productions.
@@ -120,7 +120,7 @@ export function Pricing() {
               scale: 1.01,
             }}
             transition={{ duration: 0.35 }}
-            className="relative mx-auto mt-20 max-w-xl overflow-hidden rounded-[34px] border border-gray-200 bg-white p-8 md:p-10 shadow-lg backdrop-blur-xl"
+            className="relative mx-auto mt-12 sm:mt-20 max-w-xl overflow-hidden rounded-3xl sm:rounded-[34px] border border-gray-200 bg-white p-5 sm:p-8 md:p-10 shadow-lg backdrop-blur-xl"
           >
             {/* Premium Glow */}
             <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-[#D4AF37]/10 blur-[120px]" />

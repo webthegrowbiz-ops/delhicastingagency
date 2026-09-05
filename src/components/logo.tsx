@@ -17,7 +17,7 @@ export function Logo({ className }: { className?: string }) {
       };
 
   return (
-    <div className={cn("flex items-center gap-3.5 shrink-0 group cursor-pointer select-none", className)}>
+    <div className={cn("flex items-center gap-2.5 sm:gap-3.5 shrink-0 group cursor-pointer select-none", className)}>
       <motion.div
         animate={
           shouldReduceMotion
@@ -34,7 +34,7 @@ export function Logo({ className }: { className?: string }) {
         }
         transition={syncPulseTransition}
         whileHover={{ scale: 1.05, y: -2 }}
-        className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg bg-white border border-gray-200 p-1 shadow-xs transition-all duration-300 group-hover:border-[#D4AF37] group-hover:shadow-[0_4px_20px_rgba(212,175,55,0.3)] sm:h-12 sm:w-12"
+        className="relative flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center overflow-hidden rounded-lg bg-white border border-gray-200 p-1 shadow-xs transition-all duration-300 group-hover:border-[#D4AF37] group-hover:shadow-[0_4px_20px_rgba(212,175,55,0.3)]"
       >
         {/* Synchronized Shimmer Sweep */}
         <motion.div
@@ -69,7 +69,7 @@ export function Logo({ className }: { className?: string }) {
               }
         }
         transition={syncPulseTransition}
-        className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#D4AF37] whitespace-nowrap sm:text-xs transition-colors duration-300 group-hover:text-[#B58B20]"
+        className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.14em] sm:tracking-[0.28em] text-[#D4AF37] whitespace-nowrap transition-colors duration-300 group-hover:text-[#B58B20]"
       >
         DELHI CASTING AGENCY
       </motion.span>

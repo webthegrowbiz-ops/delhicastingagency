@@ -47,9 +47,9 @@ function YoutubeIcon({ className = "h-5 w-5 text-[#111111]" }: { className?: str
 
 export function Footer() {
   return (
-    <footer className="border-t border-gray-200 bg-[#F7F7F5] text-[#111111]">
+    <footer className="overflow-hidden border-t border-gray-200 bg-[#F7F7F5] text-[#111111]">
       <div className="h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
-      <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="mx-auto max-w-7xl px-6 py-16 md:py-20">
+      <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="mx-auto max-w-7xl px-4 sm:px-6 py-16 md:py-20">
         <div className="grid gap-12 lg:grid-cols-[1.2fr_2fr]">
           <div>
             <Link href="/" className="inline-block">

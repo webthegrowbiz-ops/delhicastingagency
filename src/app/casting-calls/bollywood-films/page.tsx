@@ -18,7 +18,7 @@ export default function BollywoodFilmsCastingPage() {
       description="Prepare your talent profile for feature film auditions, lead character roles, supporting roles, and silver screen appearances."
       heroBannerImage="/media/dca/casting-calls/dca-casting-film-01.jpg"
       initialCalls={filmCalls.length > 0 ? filmCalls : CASTING_CALLS}
-      defaultCategoryFilter="Actors"
+      defaultCategoryFilter="Bollywood Films"
       breadcrumbs={[
         { label: "Home", href: "/" },
         { label: "Casting Calls", href: "/casting-calls/" },

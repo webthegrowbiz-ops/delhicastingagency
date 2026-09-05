@@ -1,3 +1,5 @@
+import { CHILD_ARTISTS_DATA } from "./child-artists";
+
 export type ActorCategorySlug =
   | "male"
   | "female"
@@ -64,6 +66,7 @@ export interface Actor {
   videos: VideoItem[];
   instagram: InstagramItem[];
   print: PrintItem[];
+  categories?: ActorCategorySlug[];
 }
 
 export interface CategoryMeta {
@@ -153,6 +156,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "rahul-mehra",
     name: "Rahul Mehra",
     category: "male",
+    categories: ["male", "popular", "experienced"],
     categoryLabel: "Male Actor",
     role: "Lead & Character Actor",
     age: 27,
@@ -184,6 +188,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "arjun-verma",
     name: "Arjun Verma",
     category: "male",
+    categories: ["male", "experienced", "popular"],
     categoryLabel: "Male Actor",
     role: "Action & Drama Lead",
     age: 29,
@@ -215,6 +220,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "kabir-sharma",
     name: "Kabir Sharma",
     category: "male",
+    categories: ["male", "fresh-faces", "popular"],
     categoryLabel: "Male Actor",
     role: "Romantic & Commercial Lead",
     age: 26,
@@ -246,6 +252,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "rohan-kapoor-actor",
     name: "Rohan Kapoor",
     category: "male",
+    categories: ["male", "experienced"],
     categoryLabel: "Male Actor",
     role: "Character & Antagonist",
     age: 31,
@@ -277,6 +284,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "ananya-deshmukh",
     name: "Ananya Deshmukh",
     category: "female",
+    categories: ["female", "popular", "experienced"],
     categoryLabel: "Female Actor",
     role: "Lead Dramatic & OTT Actor",
     age: 26,
@@ -309,6 +317,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "priya-kapoor",
     name: "Priya Kapoor",
     category: "female",
+    categories: ["female", "popular", "fresh-faces"],
     categoryLabel: "Female Actor",
     role: "Commercial & Romantic Lead",
     age: 24,
@@ -340,6 +349,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "natasha-roy",
     name: "Natasha Roy",
     category: "female",
+    categories: ["female", "fresh-faces", "experienced"],
     categoryLabel: "Female Actor",
     role: "Drama & Art Cinema Performer",
     age: 28,
@@ -371,6 +381,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "kriti-sen",
     name: "Kriti Sen",
     category: "female",
+    categories: ["female", "fresh-faces"],
     categoryLabel: "Female Actor",
     role: "Urban Professional & Character Lead",
     age: 27,
@@ -402,6 +413,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "aditya-roy",
     name: "Aditya Roy",
     category: "male",
+    categories: ["male", "experienced"],
     categoryLabel: "Male Actor",
     role: "Action & Drama Lead",
     age: 28,
@@ -412,13 +424,13 @@ export const ACTORS_DATA: Actor[] = [
     eyeColor: "Dark Brown",
     hair: "Black",
     badge: "Verified DCA Artist",
-    mainImage: "/images/actors/male actor.png",
+    mainImage: "/images/actors/model male 1.png",
     about: "Dynamic screen presence with extensive background in theatre, action choreography, and OTT thriller series.",
     skills: ["Action Choreography", "Voice Modulation", "Theatre Acting"],
     experienceCredits: [
       { project: "Delhi Crime Files", role: "Inspector Vikram", type: "OTT / Web Series", year: "2024" }
     ],
-    digitals: ["/images/actors/male actor.png"],
+    digitals: ["/images/actors/model male 1.png"],
     videos: [],
     instagram: [],
     print: []
@@ -427,6 +439,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "sid-malhotra-actor",
     name: "Siddharth Malhotra",
     category: "male",
+    categories: ["male", "fresh-faces"],
     categoryLabel: "Male Actor",
     role: "Romantic Lead",
     age: 26,
@@ -452,6 +465,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "vikram-rathore",
     name: "Vikram Rathore",
     category: "male",
+    categories: ["male", "experienced"],
     categoryLabel: "Male Actor",
     role: "Character Actor",
     age: 32,
@@ -477,6 +491,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "karan-singh",
     name: "Karan Singh",
     category: "male",
+    categories: ["male", "popular", "experienced"],
     categoryLabel: "Male Actor",
     role: "Lead Drama Actor",
     age: 29,
@@ -502,6 +517,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "riya-malhotra-actress",
     name: "Riya Malhotra",
     category: "female",
+    categories: ["female", "popular", "fresh-faces"],
     categoryLabel: "Female Actor",
     role: "Commercial & OTT Lead",
     age: 25,
@@ -512,13 +528,13 @@ export const ACTORS_DATA: Actor[] = [
     eyeColor: "Dark Brown",
     hair: "Black",
     badge: "Verified DCA Artist",
-    mainImage: "/images/actors/model female 1.png",
+    mainImage: "/images/actors/model femal 1.png",
     about: "Expressive screen actor with strong improvisational skills and prominent appearances in web series and commercials.",
     skills: ["Camera Acting", "Improvisation", "Contemporary Posing"],
     experienceCredits: [
       { project: "Urban Stories", role: "Meera", type: "OTT / Web Series", year: "2024" }
     ],
-    digitals: ["/images/actors/model female 1.png"],
+    digitals: ["/images/actors/model femal 1.png"],
     videos: [],
     instagram: [],
     print: []
@@ -527,6 +543,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "meera-kapoor",
     name: "Meera Kapoor",
     category: "female",
+    categories: ["female", "fresh-faces"],
     categoryLabel: "Female Actor",
     role: "Theatre & Screen Performer",
     age: 27,
@@ -552,6 +569,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "tara-sharma",
     name: "Tara Sharma",
     category: "female",
+    categories: ["female", "fresh-faces"],
     categoryLabel: "Female Actor",
     role: "Lead Drama Actor",
     age: 26,
@@ -577,6 +595,7 @@ export const ACTORS_DATA: Actor[] = [
     id: "pooja-verma-actress",
     name: "Pooja Verma",
     category: "female",
+    categories: ["female", "popular", "experienced"],
     categoryLabel: "Female Actor",
     role: "TV & Film Actor",
     age: 28,
@@ -600,24 +619,68 @@ export const ACTORS_DATA: Actor[] = [
   }
 ];
 
+export const CHILD_ACTORS_DATA: Actor[] = CHILD_ARTISTS_DATA.map((ca) => ({
+  id: ca.id,
+  name: ca.name,
+  category: "child-actors",
+  categoryLabel: ca.categoryLabel || "Child Actor",
+  role: ca.role,
+  age: ca.age,
+  height: ca.height,
+  experience: ca.experience,
+  location: ca.location,
+  languages: ca.languages,
+  eyeColor: ca.eyeColor || "Dark Brown",
+  hair: ca.hair || "Black",
+  badge: ca.badge || "Verified Child Artist",
+  mainImage: ca.mainImage,
+  about: ca.about,
+  skills: ca.skills,
+  experienceCredits: (ca.experienceCredits || []).map((c) => ({
+    project: c.project,
+    role: c.role,
+    type: (c.type === "TV Commercial" ? "TV Commercial" : "Feature Film") as any,
+    year: c.year,
+    directorOrClient: c.directorOrClient,
+  })),
+  digitals: ca.photos && ca.photos.length > 0 ? ca.photos : [ca.mainImage],
+  videos: ca.videos || [],
+  instagram: ca.instagram || [],
+  print: ca.print || [],
+  categories: ["child-actors"],
+}));
+
 export function getAllActors(): Actor[] {
-  return ACTORS_DATA;
+  return [...ACTORS_DATA, ...CHILD_ACTORS_DATA];
 }
 
 export function getActorById(id: string): Actor | undefined {
-  return ACTORS_DATA.find((a) => a.id === id);
+  return (
+    ACTORS_DATA.find((a) => a.id === id) ||
+    CHILD_ACTORS_DATA.find((ca) => ca.id === id)
+  );
 }
 
 export function getActorsByCategory(category: ActorCategorySlug): Actor[] {
-  return ACTORS_DATA.filter((a) => a.category === category);
+  if (category === "child-actors") {
+    return CHILD_ACTORS_DATA;
+  }
+  return ACTORS_DATA.filter(
+    (a) => a.category === category || a.categories?.includes(category)
+  );
 }
 
 export function getRelatedActors(currentId: string, category: ActorCategorySlug, limit: number = 8): Actor[] {
-  const sameCategory = ACTORS_DATA.filter((a) => a.id !== currentId && a.category === category);
+  const all = getAllActors();
+  const sameCategory = all.filter(
+    (a) => a.id !== currentId && (a.category === category || a.categories?.includes(category))
+  );
   if (sameCategory.length >= limit) {
     return sameCategory.slice(0, limit);
   }
-  const otherActors = ACTORS_DATA.filter((a) => a.id !== currentId && a.category !== category);
+  const otherActors = all.filter(
+    (a) => a.id !== currentId && a.category !== category && !a.categories?.includes(category)
+  );
   return [...sameCategory, ...otherActors].slice(0, limit);
 }
 

@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { Sparkles, Clapperboard, Film, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
+import { Sparkles, Clapperboard, Film, ShieldCheck } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { CTASection } from "@/components/ui/cta-section";
 import { API_URL } from "@/config/env";
-import type { CastingCallItem } from "@/data/casting-calls";
+import { CASTING_CALLS, type CastingCallItem } from "@/data/casting-calls";
 import { CastingCallCard } from "@/components/casting-calls/CastingCallCard";
 import { CastingFilters } from "@/components/casting-calls/CastingFilters";
 import { CastingDetailModal } from "@/components/casting-calls/CastingDetailModal";
@@ -106,15 +106,34 @@ export function CastingCallListingView({
   title,
   description,
   heroBannerImage = "/media/dca/about/dca-about-hero-01.jpg",
+  initialCalls,
   defaultCategoryFilter = "All",
   breadcrumbs,
 }: CastingCallListingViewProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>(defaultCategoryFilter);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  // Reliable base calls passed from page or global fallback
+  const baseCalls = useMemo(() => {
+    if (initialCalls && initialCalls.length > 0) {
+      return initialCalls;
+    }
+    return CASTING_CALLS;
+  }, [initialCalls]);
 
-  const [calls, setCalls] = useState<CastingCallItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // Determine safe initial category matching available calls
+  const initialCategory = useMemo(() => {
+    if (!defaultCategoryFilter || defaultCategoryFilter === "All") return "All";
+    const hasMatch = baseCalls.some(
+      (c) =>
+        c.category.toLowerCase() === defaultCategoryFilter.toLowerCase() ||
+        c.categorySlug?.toLowerCase() === defaultCategoryFilter.toLowerCase() ||
+        c.productionType.toLowerCase().includes(defaultCategoryFilter.toLowerCase()) ||
+        c.gender.toLowerCase() === defaultCategoryFilter.toLowerCase()
+    );
+    return hasMatch ? defaultCategoryFilter : "All";
+  }, [baseCalls, defaultCategoryFilter]);
+
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [calls, setCalls] = useState<CastingCallItem[]>(baseCalls);
 
   const [selectedDetailCall, setSelectedDetailCall] = useState<CastingCallItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
@@ -122,79 +141,80 @@ export function CastingCallListingView({
   const [selectedApplyCall, setSelectedApplyCall] = useState<CastingCallItem | null>(null);
   const [isApplyOpen, setIsApplyOpen] = useState<boolean>(false);
 
-  const categoriesList = useMemo(() => {
-    return [
-      "All",
-      "Female",
-      "Male",
-      "Any Gender",
-      "Actors",
-      "Models",
-      "Bollywood Feature Films",
-      "OTT Web Series",
-      "TV Commercials",
-    ];
-  }, []);
-
-  const fetchCastingCalls = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams();
-
-      if (selectedCategory && selectedCategory !== "All") {
-        const genderFilters = ["female", "male", "any gender"];
-        if (genderFilters.includes(selectedCategory.toLowerCase())) {
-          params.append("gender", selectedCategory);
-        } else {
-          params.append("category", selectedCategory);
-        }
-      }
-
-      if (searchQuery.trim()) {
-        params.append("search", searchQuery.trim());
-      }
-
-      const queryString = params.toString();
-      const url = `${API_URL}/api/casting${queryString ? `?${queryString}` : ""}`;
-
-      const res = await fetch(url);
-
-      if (!res.ok) {
-        throw new Error(`Failed to load casting calls (HTTP ${res.status})`);
-      }
-
-      const data = (await res.json()) as {
-        success: boolean;
-        message?: string;
-        castings?: RawBackendCastingCall[];
-      };
-
-      if (data.success && Array.isArray(data.castings)) {
-        const mapped = data.castings.map(mapBackendCastingToUI);
-        setCalls(mapped);
-      } else {
-        throw new Error(data.message || "Invalid API response structure");
-      }
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Network error. Unable to connect to DCA backend.";
-      setError(msg);
-      setCalls([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedCategory, searchQuery]);
-
+  // Sync state when page navigation changes baseCalls or category
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchCastingCalls();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [fetchCastingCalls]);
+    setCalls(baseCalls);
+    setSelectedCategory(initialCategory);
+  }, [baseCalls, initialCategory]);
+
+  // Optional background fetch from backend for any newly approved castings
+  useEffect(() => {
+    let isMounted = true;
+    async function loadBackendCalls() {
+      try {
+        const res = await fetch(`${API_URL}/api/casting`);
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          success?: boolean;
+          castings?: RawBackendCastingCall[];
+        };
+        if (data && data.success && Array.isArray(data.castings) && data.castings.length > 0) {
+          if (isMounted) {
+            const mapped = data.castings.map(mapBackendCastingToUI);
+            const liveIds = new Set(mapped.map((m) => m.id));
+            const merged = [...mapped, ...baseCalls.filter((c) => !liveIds.has(c.id))];
+            setCalls(merged);
+          }
+        }
+      } catch {
+        // Silently keep baseCalls active on network / CORS / backend unavailable
+      }
+    }
+    loadBackendCalls();
+    return () => {
+      isMounted = false;
+    };
+  }, [baseCalls]);
+
+  // Category list for filters
+  const categoriesList = useMemo(() => {
+    const list: string[] = ["All", "Female", "Male", "Any Gender"];
+    calls.forEach((c) => {
+      if (c.category && !list.includes(c.category)) {
+        list.push(c.category);
+      }
+    });
+    return list;
+  }, [calls]);
+
+  // Filtered calls
+  const filteredCalls = useMemo(() => {
+    const genderFilters = ["female", "male", "any gender"];
+    const query = searchQuery.trim().toLowerCase();
+
+    return calls.filter((call) => {
+      const isGenderFilter = genderFilters.includes(selectedCategory.toLowerCase());
+
+      const matchCat =
+        selectedCategory === "All"
+          ? true
+          : isGenderFilter
+          ? call.gender.toLowerCase() === selectedCategory.toLowerCase()
+          : call.category.toLowerCase() === selectedCategory.toLowerCase() ||
+            call.categorySlug?.toLowerCase() === selectedCategory.toLowerCase() ||
+            call.productionType.toLowerCase().includes(selectedCategory.toLowerCase());
+
+      const matchQuery =
+        !query ||
+        call.title.toLowerCase().includes(query) ||
+        call.location.toLowerCase().includes(query) ||
+        call.productionType.toLowerCase().includes(query) ||
+        call.category.toLowerCase().includes(query) ||
+        call.description.toLowerCase().includes(query);
+
+      return matchCat && matchQuery;
+    });
+  }, [calls, selectedCategory, searchQuery]);
 
   const handleOpenDetails = (item: CastingCallItem) => {
     setSelectedDetailCall(item);
@@ -272,46 +292,10 @@ export function CastingCallListingView({
           onSearchChange={setSearchQuery}
         />
 
-        {/* Loading State */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 items-stretch py-8">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="animate-pulse rounded-3xl border border-gray-200 bg-white p-6 h-[420px] flex flex-col justify-between"
-              >
-                <div className="space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-1/3" />
-                  <div className="h-40 bg-gray-200 rounded-2xl w-full" />
-                  <div className="h-6 bg-gray-200 rounded w-3/4" />
-                  <div className="h-16 bg-gray-100 rounded-2xl w-full" />
-                  <div className="h-10 bg-gray-100 rounded w-full" />
-                </div>
-                <div className="h-10 bg-gray-200 rounded-xl w-full mt-4" />
-              </div>
-            ))}
-          </div>
-        ) : error ? (
-          /* Error State */
-          <div className="p-8 sm:p-12 text-center rounded-3xl bg-amber-50/70 border border-amber-200 text-amber-900 my-6 shadow-xs">
-            <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
-            <h3 className="text-xl font-bold text-amber-950 mb-2">Unable to Load Casting Calls</h3>
-            <p className="text-sm text-amber-800 max-w-md mx-auto mb-5 leading-relaxed">
-              {error}
-            </p>
-            <button
-              type="button"
-              onClick={() => fetchCastingCalls()}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#d4af37] text-white font-semibold text-xs hover:bg-[#c59b27] transition-all shadow-sm"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Retry Connection</span>
-            </button>
-          </div>
-        ) : calls.length > 0 ? (
-          /* Real Approved Casting Call Grid */
+        {/* Casting Call Grid */}
+        {filteredCalls.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 items-stretch">
-            {calls.map((item, index) => (
+            {filteredCalls.map((item, index) => (
               <Reveal key={item.id} delay={index * 0.05} className="h-full">
                 <CastingCallCard
                   item={item}
@@ -325,9 +309,9 @@ export function CastingCallListingView({
           /* Empty State */
           <div className="p-12 text-center rounded-3xl bg-[#F7F7F5] border border-gray-200 text-[#555555]">
             <Clapperboard className="w-12 h-12 text-[#d4af37] mx-auto mb-3" />
-            <h3 className="text-xl font-bold text-[#111111] mb-2">No Approved Casting Calls Found</h3>
+            <h3 className="text-xl font-bold text-[#111111] mb-2">No Casting Calls Found</h3>
             <p className="text-sm text-[#555555] max-w-md mx-auto leading-relaxed">
-              There are currently no approved casting calls matching your selected category or search filter.
+              There are currently no casting calls matching your selected category or search filter.
             </p>
             <button
               type="button"

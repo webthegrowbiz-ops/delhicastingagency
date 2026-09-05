@@ -63,7 +63,7 @@ export function ChildArtistProfileView({
   return (
     <main className="bg-white min-h-screen text-[#111111]">
       {/* Breadcrumb Bar */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-24 pb-4">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-4">
         <Breadcrumb
           items={[
             { label: "Home", href: "/" },

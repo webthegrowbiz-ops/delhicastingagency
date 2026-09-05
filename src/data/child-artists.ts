@@ -340,6 +340,21 @@ export function getChildArtistById(id: string): ChildArtist | undefined {
 }
 
 export function getChildArtistsByCategory(category: ChildArtistCategorySlug): ChildArtist[] {
+  if (category === "boys") {
+    return CHILD_ARTISTS_DATA.filter(
+      (ca) => ca.category === "boys" || ca.categoryLabel.toLowerCase().includes("boy")
+    );
+  }
+  if (category === "girls") {
+    return CHILD_ARTISTS_DATA.filter(
+      (ca) => ca.category === "girls" || ca.categoryLabel.toLowerCase().includes("girl")
+    );
+  }
+  if (category === "fresh-faces") {
+    return CHILD_ARTISTS_DATA.filter(
+      (ca) => ca.category === "fresh-faces" || ca.badge?.toLowerCase().includes("emerging") || ca.experience.includes("1") || ca.experience.includes("2")
+    );
+  }
   return CHILD_ARTISTS_DATA.filter((ca) => ca.category === category);
 }
 

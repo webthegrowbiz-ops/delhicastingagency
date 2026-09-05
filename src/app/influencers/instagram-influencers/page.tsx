@@ -22,7 +22,7 @@ export default function InstagramInfluencersPage() {
   return (
     <main className="bg-white min-h-screen text-[#111111]">
       {/* Streamlined Category Hero */}
-      <section className="relative isolate overflow-hidden border-b border-gray-200 bg-[#F7F7F5] px-4 sm:px-6 lg:px-8 pb-8 pt-24 sm:pt-28">
+      <section className="relative isolate overflow-hidden border-b border-gray-200 bg-[#F7F7F5] px-4 sm:px-6 lg:px-8 pb-8 pt-32 sm:pt-36">
         <div className="mx-auto max-w-7xl">
           <div className="mb-4">
             <Breadcrumb

@@ -10,9 +10,19 @@ interface ActorCardProps {
 }
 
 export function ActorCard({ actor }: ActorCardProps) {
+  const isChild =
+    actor.category === "child-actors" ||
+    actor.categories?.includes("child-actors") ||
+    actor.id.includes("-kid") ||
+    ["reyansh-verma", "ananya-joshi", "siya-mehta", "myra-kapoor"].includes(actor.id);
+
+  const profileHref = isChild
+    ? `/child-artists/profile/${actor.id}`
+    : `/actors/profile/${actor.id}`;
+
   return (
     <Link
-      href={`/actors/profile/${actor.id}`}
+      href={profileHref}
       className="group block cursor-pointer"
     >
       {/* Editorial Portrait Image */}

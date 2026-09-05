@@ -75,7 +75,7 @@ export default function TalentsPage() {
   return (
     <main className="bg-white min-h-screen text-[#111111]">
       {/* Hero Header */}
-      <section className="relative isolate overflow-hidden border-b border-gray-200 bg-[#F7F7F5] px-4 sm:px-6 lg:px-8 pb-10 pt-24 sm:pb-14 sm:pt-32">
+      <section className="relative isolate overflow-hidden border-b border-gray-200 bg-[#F7F7F5] px-4 sm:px-6 lg:px-8 pb-10 pt-32 sm:pb-14 sm:pt-36">
         <div className="mx-auto max-w-7xl">
           <Reveal>
             {/* 1. Eyebrow */}

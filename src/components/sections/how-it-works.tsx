@@ -40,7 +40,7 @@ const STEPS: Step[] = [
 
 export function HowItWorks() {
   return (
-    <section className="py-16 pt-24 overflow-visible bg-white border-b border-gray-200">
+    <section className="py-16 pt-24 overflow-hidden bg-white border-b border-gray-200">
       <div className="max-w-6xl mx-auto px-4">
         {/* Heading */}
         <div className="text-center mb-12">

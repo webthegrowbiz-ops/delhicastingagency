@@ -187,7 +187,7 @@ export function Navbar() {
             : "border-b border-gray-100/80 bg-white/95 py-2 shadow-xs backdrop-blur-md"
         )}
       >
-        <div className="mx-auto flex h-20 w-full max-w-[1600px] items-center px-4 sm:px-6 lg:px-8 xl:px-8 2xl:px-10">
+        <div className="mx-auto flex h-20 w-full max-w-[1600px] items-center justify-between px-3.5 sm:px-6 lg:px-8 xl:px-8 2xl:px-10">
           
           {/* =========================================================
               1. LEFT: BRAND SECTION (LOGO + BRAND NAME)

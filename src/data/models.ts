@@ -620,6 +620,46 @@ export function getModelById(id: string): Model | undefined {
 }
 
 export function getModelsByCategory(category: ModelCategorySlug): Model[] {
+  if (category === "female-models") {
+    return MODELS_DATA.filter((m) => m.category === "female-models");
+  }
+  if (category === "male-models") {
+    return MODELS_DATA.filter((m) => m.category === "male-models");
+  }
+  if (category === "fashion-models") {
+    const list = MODELS_DATA.filter((m) =>
+      m.role.toLowerCase().includes("fashion") ||
+      m.role.toLowerCase().includes("runway") ||
+      m.role.toLowerCase().includes("editorial") ||
+      m.skills.some((s) => s.toLowerCase().includes("runway") || s.toLowerCase().includes("fashion"))
+    );
+    return list.length > 0 ? list : MODELS_DATA.slice(0, 6);
+  }
+  if (category === "commercial-models") {
+    const list = MODELS_DATA.filter((m) =>
+      m.role.toLowerCase().includes("commercial") ||
+      m.role.toLowerCase().includes("catalogue") ||
+      m.role.toLowerCase().includes("print") ||
+      m.skills.some((s) => s.toLowerCase().includes("commercial") || s.toLowerCase().includes("catalogue"))
+    );
+    return list.length > 0 ? list : MODELS_DATA.slice(0, 6);
+  }
+  if (category === "fitness-models") {
+    const list = MODELS_DATA.filter((m) =>
+      m.role.toLowerCase().includes("fitness") ||
+      m.skills.some((s) => s.toLowerCase().includes("fitness") || s.toLowerCase().includes("swimwear") || s.toLowerCase().includes("physique")) ||
+      ["kabir-bhatia", "dev-rathore", "harsh-vardhan", "rohan-mehra-model"].includes(m.id)
+    );
+    return list.length > 0 ? list : MODELS_DATA.slice(0, 6);
+  }
+  if (category === "plus-size-models") {
+    const list = MODELS_DATA.filter((m) =>
+      m.role.toLowerCase().includes("curve") ||
+      m.skills.some((s) => s.toLowerCase().includes("curve") || s.toLowerCase().includes("plus")) ||
+      ["ananya-sen", "alisha-khan", "meera-sharma"].includes(m.id)
+    );
+    return list.length > 0 ? list : MODELS_DATA.slice(0, 6);
+  }
   return MODELS_DATA.filter((m) => m.category === category);
 }
 

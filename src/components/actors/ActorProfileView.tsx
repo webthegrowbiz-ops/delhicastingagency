@@ -23,6 +23,7 @@ import { PortfolioGallery } from "./PortfolioGallery";
 import { VideoGallery } from "./VideoGallery";
 import { ActorCard } from "./ActorCard";
 import { ImageLightbox } from "./ImageLightbox";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 interface ActorProfileViewProps {
   actor: Actor;
@@ -61,43 +62,23 @@ export function ActorProfileView({
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#111111]">
+    <main className="min-h-screen bg-white text-[#111111]">
       {/* Breadcrumb Bar */}
-      <div className="border-b border-gray-200 bg-[#F7F7F5]/90 backdrop-blur-md sticky top-16 sm:top-20 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-          <nav
-            aria-label="Breadcrumb"
-            className="flex items-center text-xs sm:text-sm text-[#666666] overflow-x-auto no-scrollbar whitespace-nowrap"
-          >
-            <Link
-              href="/"
-              className="hover:text-[#d4af37] transition-colors"
-            >
-              Home
-            </Link>
-            <ChevronRight className="w-3.5 h-3.5 mx-2 text-gray-400 flex-shrink-0" />
-            <Link
-              href="/actors"
-              className="hover:text-[#d4af37] transition-colors"
-            >
-              Actors
-            </Link>
-            <ChevronRight className="w-3.5 h-3.5 mx-2 text-gray-400 flex-shrink-0" />
-            <Link
-              href={`/actors/${actor.category}`}
-              className="hover:text-[#d4af37] transition-colors"
-            >
-              {actor.categoryLabel}s
-            </Link>
-            <ChevronRight className="w-3.5 h-3.5 mx-2 text-gray-400 flex-shrink-0" />
-            <span className="text-[#d4af37] font-semibold truncate max-w-[200px]">
-              {actor.name}
-            </span>
-          </nav>
+      <div className="border-b border-gray-200 bg-[#F7F7F5] pt-28 sm:pt-32 pb-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Breadcrumb
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Talents", href: "/talents/" },
+              { label: "Actors", href: "/actors/" },
+              { label: `${actor.categoryLabel}s`, href: `/actors/${actor.category}` },
+              { label: actor.name },
+            ]}
+          />
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* Back Link */}
         <div className="mb-6">
           <Link
@@ -391,6 +372,6 @@ export function ActorProfileView({
         onClose={() => setHeaderLightboxOpen(false)}
         onNavigate={() => {}}
       />
-    </div>
+    </main>
   );
 }

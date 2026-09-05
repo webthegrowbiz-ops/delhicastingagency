@@ -12,17 +12,19 @@ export function Reveal({
   children,
   delay = 0,
   className,
+  amount = "some",
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
+  amount?: "some" | "all" | number;
 }) {
   return (
     <motion.div
       className={className}
       initial="hidden"
       whileInView="show"
-      viewport={{ once: true, amount: 0.2 }}
+      viewport={{ once: true, amount }}
       variants={variants}
       transition={{ delay }}
     >

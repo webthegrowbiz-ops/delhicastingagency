@@ -424,6 +424,165 @@ export const CASTING_CALLS: CastingCallItem[] = [
     ],
     image: "/media/dca/child-artists/dca-child-artist-boy-01.jpg",
   },
+  {
+    id: "cc-009",
+    slug: "lead-protagonist-prime-time-tv-serial",
+    title: "Lead Female & Male Roles for Prime-Time Hindi TV Serial",
+    category: "TV Serials",
+    categorySlug: "tv-serials",
+    productionType: "Television Daily Soap",
+    location: "Mumbai, MH",
+    gender: "Any Gender",
+    ageRange: "19 - 28 Years",
+    status: "OPEN",
+    deadline: "Sep 22, 2026",
+    compensation: "₹35,000 - ₹65,000 Per Shoot Day",
+    description: "Auditions for lead protagonist and pivotal family roles in an upcoming prime-time family drama on a premier Indian entertainment channel.",
+    roleDetails: "Expressive screen presence, strong emotional range, fluent Hindi dialogue delivery, traditional and contemporary screen appeal.",
+    requirements: [
+      "Expressive eyes and strong camera confidence",
+      "Clear Hindi diction without regional accent bleed",
+      "Commitment for minimum 6-month continuous shoot schedule in Mumbai",
+    ],
+    whatToPrepare: [
+      "2-minute Hindi dramatic monologue self-tape",
+      "Front and 45-degree digital headshots (traditional & casual wear)",
+      "Updated acting profile or previous screen work link",
+    ],
+    image: "/images/actors/TV Serials.webp",
+  },
+  {
+    id: "cc-010",
+    slug: "music-video-lead-performer-pop-single",
+    title: "Featured Lead Models & Performers for Bollywood Pop Single",
+    category: "Music Videos",
+    categorySlug: "music-videos",
+    productionType: "Music Video",
+    location: "Chandigarh / Delhi NCR",
+    gender: "Female",
+    ageRange: "18 - 25 Years",
+    status: "OPEN",
+    deadline: "Sep 18, 2026",
+    compensation: "₹50,000 - ₹90,000 Per Shoot",
+    description: "Casting charismatic female lead model & performer for a high-budget music label single featuring top playback singers.",
+    roleDetails: "High glamour screen presence, photogenic face, natural rhythm and graceful camera movement.",
+    requirements: [
+      "Height minimum 5'5\" with camera-friendly photogenic appeal",
+      "Comfortable with dance steps, fashion styling, and camera movement",
+      "Available for a 2-day shoot schedule",
+    ],
+    whatToPrepare: [
+      "Full length dance or walking video sample",
+      "Recent natural portfolio polaroids",
+      "Instagram / video showreel link",
+    ],
+    image: "/images/actors/Music Videos.jpg",
+  },
+  {
+    id: "cc-011",
+    slug: "festive-bridal-catalogue-print-shoot",
+    title: "Catalog & Lookbook Models for Premium Festive Bridal Collection",
+    category: "Print Ads",
+    categorySlug: "print-ads",
+    productionType: "Print / Lookbook",
+    location: "New Delhi (DL)",
+    gender: "Female",
+    ageRange: "20 - 28 Years",
+    status: "OPEN",
+    deadline: "Sep 14, 2026",
+    compensation: "₹40,000 - ₹70,000 Per Shoot Day",
+    description: "High-fashion commercial print campaign for leading luxury ethnic brand's festive bridal and lehenga couture collection.",
+    roleDetails: "Graceful bridal model showcasing heritage royal jewelry, bridal wear, and designer silhouettes with regal elegance.",
+    requirements: [
+      "Prior commercial print, lookbook, or bridal shoot experience",
+      "Graceful facial expressions with expressive eyes and camera charm",
+      "Professional posing experience in Indian ethnic wear",
+    ],
+    whatToPrepare: [
+      "Traditional ethnic wear portfolio headshots",
+      "Close-up beauty portraits",
+      "Model measurement comp card",
+    ],
+    image: "/images/actors/model femal 3.png",
+  },
+  {
+    id: "cc-012",
+    slug: "ensemble-leads-political-thriller-ott",
+    title: "Ensemble Cast & Secondary Leads for Political Thriller OTT Series",
+    category: "OTT Series",
+    categorySlug: "ott-web-series",
+    productionType: "OTT Web Series",
+    location: "Delhi NCR / Mumbai",
+    gender: "Male",
+    ageRange: "28 - 45 Years",
+    status: "OPEN",
+    deadline: "Sep 25, 2026",
+    compensation: "Streaming Platform Scale (Per Episode)",
+    description: "Casting intense male character actors and secondary leads for a multi-episode political thriller for a premier streaming platform.",
+    roleDetails: "Sharp investigative journalists, political advisors, and intelligence officers. Requires grounded, naturalistic acting style.",
+    requirements: [
+      "Theatre background or past screen credits strongly preferred",
+      "Fluent in Hindi with crisp dialogue delivery",
+      "Realistic character acting and scene improvisation ability",
+    ],
+    whatToPrepare: [
+      "Dramatic dialogue audition reel or 2-minute Hindi monologue",
+      "Updated artist CV and current headshots",
+    ],
+    image: "/images/actors/looking for male & female.png",
+  },
+  {
+    id: "cc-013",
+    slug: "supporting-actors-bollywood-family-film",
+    title: "Supporting Character & Comic Actors for Bollywood Feature Film",
+    category: "Bollywood Films",
+    categorySlug: "bollywood-films",
+    productionType: "Bollywood Feature Film",
+    location: "Mumbai / Lucknow",
+    gender: "Any Gender",
+    ageRange: "25 - 55 Years",
+    status: "VERIFIED",
+    deadline: "Sep 28, 2026",
+    compensation: "Feature Film Guild Scale",
+    description: "Auditions for lively, relatable comic and supporting family character roles for a major theatrical release Bollywood film.",
+    roleDetails: "Eccentric relatives, witty neighbors, and comedic situational roles requiring impeccable comic timing and charm.",
+    requirements: [
+      "Strong comedic timing and improvisational ability",
+      "Fluent Hindi / North Indian dialect",
+      "Comfortable with ensemble family scenes",
+    ],
+    whatToPrepare: [
+      "1-minute comedic monologue video",
+      "Current casual photographs",
+    ],
+    image: "/images/actors/casting-calls bollywooed hrizontally.png",
+  },
+  {
+    id: "cc-014",
+    slug: "mens-couture-runway-models-fashion-week",
+    title: "Runway Models for Men's Luxury Festive Couture Week",
+    category: "Fashion Shows",
+    categorySlug: "fashion-shows",
+    productionType: "Fashion Show / Runway",
+    location: "Mumbai, MH",
+    gender: "Male",
+    ageRange: "20 - 30 Years",
+    status: "OPEN",
+    deadline: "Sep 16, 2026",
+    compensation: "₹35,000 - ₹65,000 Per Show",
+    description: "Casting 10 male runway models for Mumbai Couture Week menswear and sherwani collection showcases.",
+    roleDetails: "Runway models presenting bespoke sherwanis, bandhgalas, and modern Indo-Western luxury silhouettes.",
+    requirements: [
+      "Height minimum 6'0\" without shoes",
+      "Fit athletic build and confident runway ramp walk",
+      "Runway ramp walk experience preferred",
+    ],
+    whatToPrepare: [
+      "Catwalk ramp walk video sample",
+      "Clean fitness polaroids and comp card",
+    ],
+    image: "/images/actors/Fashion Shows.webp",
+  },
 ];
 
 export function getAllCastingCategories(): CastingCategoryMeta[] {
@@ -437,11 +596,22 @@ export function getAllCastingCalls(): CastingCallItem[] {
 export function getCastingCallsByCategory(categorySlug: string): CastingCallItem[] {
   if (!categorySlug || categorySlug === "all") return CASTING_CALLS;
 
-  return CASTING_CALLS.filter(
-    (item) =>
-      item.categorySlug.toLowerCase() === categorySlug.toLowerCase() ||
-      item.category.toLowerCase().includes(categorySlug.toLowerCase())
-  );
+  const normalized = categorySlug.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const matched = CASTING_CALLS.filter((item) => {
+    const slugNorm = item.categorySlug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const catNorm = item.category.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const prodNorm = item.productionType.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    return (
+      slugNorm.includes(normalized) ||
+      normalized.includes(slugNorm) ||
+      catNorm.includes(normalized) ||
+      normalized.includes(catNorm) ||
+      prodNorm.includes(normalized)
+    );
+  });
+
+  return matched.length > 0 ? matched : CASTING_CALLS;
 }
 
 export function getCastingCallBySlug(slug: string): CastingCallItem | undefined {

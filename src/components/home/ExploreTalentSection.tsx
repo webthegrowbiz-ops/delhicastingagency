@@ -135,14 +135,14 @@ export function ExploreTalentSection() {
             <Reveal key={cat.id}>
               <div className="pt-8 sm:pt-12 border-t border-[#E5E5E5] first:border-t-0 first:pt-0">
                 {/* Category Header: Title (LEFT) | EXPLORE CATEGORY → (RIGHT) */}
-                <div className="flex items-center justify-between gap-4 border-b border-gray-200 pb-4 mb-6 sm:mb-8">
-                  <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111111]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4 mb-6 sm:mb-8">
+                  <h3 className="text-xl sm:text-3xl font-extrabold tracking-tight text-[#111111]">
                     {cat.title}
                   </h3>
 
                   <Link
                     href={cat.route}
-                    className="group/link inline-flex items-center gap-2 text-xs sm:text-sm font-extrabold uppercase tracking-[0.08em] text-[#111111] hover:text-[#D4AF37] transition-colors shrink-0"
+                    className="group/link inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-extrabold uppercase tracking-[0.08em] text-[#111111] hover:text-[#D4AF37] transition-colors shrink-0"
                   >
                     <span>EXPLORE CATEGORY</span>
                     <ArrowRight className="h-4 w-4 text-[#D4AF37] transition-transform duration-300 group-hover/link:translate-x-1.5" />

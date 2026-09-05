@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Playfair_Display, Great_Vibes } from "next/font/google";
 
 import "./globals.css";
@@ -92,6 +92,12 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -131,7 +137,7 @@ export default function RootLayout({
           <Navbar />
 
           {/* Page Content */}
-          <main className="min-h-screen">{children}</main>
+          <main className="min-h-screen w-full max-w-full overflow-x-hidden">{children}</main>
 
           {/* Global Footer */}
           <Footer />
