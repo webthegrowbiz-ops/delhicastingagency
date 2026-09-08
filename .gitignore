@@ -12,15 +12,17 @@ out/
 dist/
 */dist/
 
-# Environment files and secrets (never commit local credentials)
+# Environment files, templates, and secrets (strictly blocked from git)
 .env
+.env*
 .env.*
 *.env
 *.env.*
-!.env.example
-!*/.env.example
-!*.env.local.example
-!*/.env.local.example
+*.env.example
+*/*.env.example
+*.env.local*
+*/*.env.local*
+
 
 # Logs and system files
 *.log
