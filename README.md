@@ -7,13 +7,13 @@ India's premier casting agency platform connecting actors, models, dancers, chil
 This repository is structured as a fullstack production monorepo:
 
 - `frontend/` — Next.js 16 (App Router), React 19, Tailwind CSS, Turbopack, Framer Motion (Deployed on **Vercel**).
-- `backend/` — Node.js, Express, TypeScript, Prisma ORM, PostgreSQL, PayU Gateway, Cloudinary, Gmail SMTP / Resend (Deployed on **Render**).
+- `backend/` — Node.js, Express, TypeScript, Prisma ORM, PostgreSQL, PayU Gateway, Cloudinary, Gmail SMTP (Nodemailer) (Deployed on **Render**).
 
 ## Deployment
 
 ### Frontend (Vercel)
 - **Framework**: Next.js
-- **Root Directory**: `frontend` (Recommended in Vercel Settings > General > Root Directory)
+- **Root Directory**: `frontend` (Set in Vercel Settings > General > Root Directory)
 - **Build Command**: `npm run build`
 - **Output Directory**: `.next`
 
@@ -39,17 +39,16 @@ Configure these variables in your deployment dashboard (e.g. Vercel & Render) or
 - `DIRECT_URL` — Direct PostgreSQL connection string (for migrations if using connection pooler)
 - `JWT_SECRET` — Secret key for signing and verifying JSON Web Tokens
 - `FRONTEND_URL` — Allowed origin URL for CORS and frontend redirects
-- `SMTP_HOST` — SMTP server hostname (e.g., Gmail / Resend)
-- `SMTP_PORT` — SMTP server port
+- `BACKEND_URL` — Public URL of the backend API (used for PayU payment callbacks)
+- `SMTP_HOST` — SMTP server hostname (e.g., `smtp.gmail.com`)
+- `SMTP_PORT` — SMTP server port (e.g., `587` or `465`)
 - `SMTP_SECURE` — SMTP SSL/TLS connection flag (`true` or `false`)
-- `SMTP_USER` — SMTP authentication username/email
-- `SMTP_PASS` — SMTP application password
-- `RESEND_API_KEY` — Optional fallback email service API key
+- `SMTP_USER` — Gmail SMTP username / email address
+- `SMTP_PASS` — Gmail SMTP 16-character App Password
+- `EMAIL_FROM` — Sender display name and email address
 - `CLOUDINARY_CLOUD_NAME` — Cloudinary account cloud name
 - `CLOUDINARY_API_KEY` — Cloudinary API key
 - `CLOUDINARY_API_SECRET` — Cloudinary API secret
 - `PAYU_MERCHANT_KEY` — PayU merchant key
 - `PAYU_MERCHANT_SALT` — PayU merchant salt
 - `PAYU_MODE` — PayU environment (`TEST` / `LIVE`)
-- `PAYU_SUCCESS_URL` — PayU payment success callback URL
-- `PAYU_FAIL_URL` — PayU payment failure callback URL
