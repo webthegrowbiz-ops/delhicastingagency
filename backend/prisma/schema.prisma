@@ -1,0 +1,500 @@
+// ============================================================
+// DATABASE CONFIGURATION
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// USER / AUTHENTICATION
+// ============================================================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  role         UserRole
+  tokenVersion Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  passwordResetRequired Boolean  @default(false)
+
+  artistProfile ArtistProfile?
+  brandProfile  BrandProfile?
+  payments      Payment[]
+  entitlement   PremiumEntitlement?
+  castingCalls  CastingCall[]
+  applications  Application[]
+  approvals     ApprovalRequest[]
+  notifications Notification[]
+  adminMfa      AdminMfa?
+  revokedTokens RevokedToken[]
+
+  @@index([passwordResetToken])
+}
+
+// ============================================================
+// USER ROLES
+// ============================================================
+
+enum UserRole {
+  ARTIST
+  BRAND
+  ADMIN
+}
+
+// ============================================================
+// ARTIST PROFILE
+// ============================================================
+
+model ArtistProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  fullName    String
+  phone       String?
+  gender      String?
+  dateOfBirth DateTime?
+
+  city  String?
+  state String?
+
+  bio String?
+
+  height String?
+  weight String?
+
+  chest String?
+  waist String?
+  hips  String?
+
+  languages        String?
+  skills           String?
+  specialAbilities String?
+
+  profilePhoto String?
+  headshots    String?
+
+  // DCA Admin Verification
+  verificationStatus ArtistVerificationStatus @default(PENDING_REVIEW)
+  adminFeedback      String?
+
+  submittedAt DateTime?
+  approvedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Index for admin moderation and verified artist lookups
+  @@index([verificationStatus])
+}
+
+// ============================================================
+// ARTIST VERIFICATION STATUS
+// ============================================================
+
+enum ArtistVerificationStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ============================================================
+// BRAND PROFILE
+// ============================================================
+
+model BrandProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  companyName String
+  contactName String?
+  phone       String?
+  email       String?
+
+  website String?
+  city    String?
+  state   String?
+
+  companyDescription String?
+  companyLogo        String?
+
+  // DCA Admin Verification
+  verificationStatus BrandVerificationStatus @default(PENDING_REVIEW)
+  adminFeedback      String?
+
+  submittedAt DateTime?
+  approvedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Index for brand verification status lookups
+  @@index([verificationStatus])
+}
+
+// ============================================================
+// BRAND VERIFICATION STATUS
+// ============================================================
+
+enum BrandVerificationStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+
+model Payment {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amount   Int
+  currency String @default("INR")
+
+  plan   PaymentPlan
+  status PaymentStatus @default(PENDING)
+
+  // Gateway Discriminator
+  gateway String @default("RAZORPAY")
+
+  // Razorpay transaction details
+  razorpayOrderId   String? @unique
+  razorpayPaymentId String? @unique
+  razorpaySignature String?
+
+  // PayU transaction details
+  payuTxnId     String? @unique
+  payuPaymentId String?
+  payuMode      String?
+  payuStatus    String?
+
+  paidAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([gateway])
+  @@index([payuTxnId])
+}
+
+// ============================================================
+// PREMIUM PLANS
+// ============================================================
+
+enum PaymentPlan {
+  ARTIST_PREMIUM
+  BRAND_PREMIUM
+}
+
+// ============================================================
+// PAYMENT STATUS
+// ============================================================
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// ============================================================
+// PREMIUM ENTITLEMENT / 3-MONTH ACCESS
+// ============================================================
+
+model PremiumEntitlement {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan     PaymentPlan
+  amount   Int
+  duration String      @default("3_months")
+
+  startedAt DateTime
+  expiresAt DateTime
+
+  // Links the entitlement to the verified payment
+  paymentId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// CASTING CALL
+// ============================================================
+
+model CastingCall {
+  id      String @id @default(uuid())
+  brandId String
+  brand   User   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+
+  category     String?
+  location     String?
+  compensation String?
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  ageMin Int?
+  ageMax Int?
+
+  gender String?
+
+  requirements String?
+
+  // Admin approval
+  approvalStatus CastingCallApprovalStatus @default(PENDING_REVIEW)
+  adminFeedback  String?
+
+  submittedAt DateTime?
+  approvedAt  DateTime?
+
+  // Soft close status
+  isClosed Boolean   @default(false)
+  closedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications Application[]
+
+  // Performance indexes for public portal, brand dashboard, and admin moderation
+  @@index([approvalStatus, isClosed])
+  @@index([brandId])
+  @@index([category])
+  @@index([submittedAt])
+}
+
+// ============================================================
+// CASTING CALL APPROVAL STATUS
+// ============================================================
+
+enum CastingCallApprovalStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ============================================================
+// CASTING APPLICATION
+// ============================================================
+
+model Application {
+  id String @id @default(uuid())
+
+  artistId String
+  artist   User   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  castingCallId String
+  castingCall   CastingCall @relation(fields: [castingCallId], references: [id], onDelete: Cascade)
+
+  // Application information
+  message      String?
+  portfolioUrl String?
+
+  // Application status
+  status ApplicationStatus @default(PENDING)
+
+  adminFeedback String?
+
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Prevent the same artist from applying twice
+  @@unique([artistId, castingCallId])
+
+  // Performance indexes for artist applications, brand roster status filtering, and analytics
+  @@index([artistId])
+  @@index([castingCallId, status])
+  @@index([status])
+}
+
+// ============================================================
+// APPLICATION STATUS
+// ============================================================
+
+enum ApplicationStatus {
+  PENDING
+  SHORTLISTED
+  SELECTED
+  REJECTED
+}
+
+// ============================================================
+// ADMIN APPROVAL REQUEST
+// ============================================================
+
+model ApprovalRequest {
+  id String @id @default(uuid())
+
+  // Admin who reviewed the request
+  adminId String
+  admin   User   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  // What is being reviewed
+  type ApprovalType
+
+  // ID of the actual record being reviewed
+  targetId String
+
+  status ApprovalRequestStatus @default(PENDING)
+
+  feedback String?
+
+  reviewedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// APPROVAL TYPE
+// ============================================================
+
+enum ApprovalType {
+  ARTIST_PROFILE
+  BRAND_PROFILE
+  CASTING_CALL
+}
+
+// ============================================================
+// APPROVAL REQUEST STATUS
+// ============================================================
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================================
+// NOTIFICATION SYSTEM
+// ============================================================
+
+model Notification {
+  id      String @id @default(uuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type    NotificationType
+  title   String
+  message String
+
+  entityType String?
+  entityId   String?
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+// ============================================================
+// NOTIFICATION TYPE
+// ============================================================
+
+enum NotificationType {
+  APPLICATION_SUBMITTED
+  APPLICATION_SHORTLISTED
+  APPLICATION_SELECTED
+  APPLICATION_REJECTED
+
+  NEW_APPLICATION
+  CASTING_APPROVED
+  CASTING_REJECTED
+  CASTING_CLOSED
+
+  ARTIST_PROFILE_APPROVED
+  ARTIST_PROFILE_REJECTED
+  BRAND_PROFILE_APPROVED
+  BRAND_PROFILE_REJECTED
+  PROFILE_SUSPENDED
+
+  PAYMENT_SUCCESSFUL
+  PAYMENT_FAILED
+
+  PREMIUM_EXPIRING
+  PREMIUM_EXPIRED
+
+  WELCOME
+  LOGIN_SUCCESSFUL
+
+  SYSTEM
+}
+
+// ============================================================
+// ADMIN MFA / 2FA SECURITY
+// ============================================================
+
+model AdminMfa {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mfaEnabled    Boolean   @default(false)
+  mfaSecret     String?   // AES-256-GCM encrypted TOTP secret
+  mfaEnrolledAt DateTime?
+
+  backupCodes AdminMfaBackupCode[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminMfaBackupCode {
+  id         String   @id @default(uuid())
+  adminMfaId String
+  adminMfa   AdminMfa @relation(fields: [adminMfaId], references: [id], onDelete: Cascade)
+
+  codeHash String // bcrypt hash of 8-character backup code
+  usedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([adminMfaId])
+}
+
+// ============================================================
+// SERVER-SIDE JWT REVOCATION / BLACKLIST
+// ============================================================
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}

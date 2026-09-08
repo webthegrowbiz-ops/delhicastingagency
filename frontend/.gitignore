@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Local / temporary files
+*.zip
+.postman/
+postman/
+npm*.tsbuildinfo
+*.tsbuildinfo
+*.tsbuildinfo
