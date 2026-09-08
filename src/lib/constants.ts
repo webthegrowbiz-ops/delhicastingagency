@@ -21,5 +21,3 @@ export const TRACKING = {
   googleAdsId: process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ?? "",
   googleAdsConversionLabel: process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL ?? "",
 };
-
-export const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "";

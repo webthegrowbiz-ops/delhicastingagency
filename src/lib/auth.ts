@@ -71,8 +71,8 @@ export function setDCAUserSession(
   emailOrPhone: string,
   role: "artist" | "brand" | "admin" | "ARTIST" | "BRAND" | "ADMIN" = "ARTIST",
   isNewRegistration: boolean = false,
-  token?: string,
-  userId?: string
+  token?: string | null,
+  userId?: string | null
 ) {
   if (typeof window !== "undefined") {
     const existing = getUserSession();
@@ -80,8 +80,18 @@ export function setDCAUserSession(
       Boolean(existing &&
       (existing.identifier === emailOrPhone || existing.email === emailOrPhone));
 
-    // CRITICAL SECURITY FIX: Never inherit premium status from an old or different user!
-    // For new registrations or different users, premium is ALWAYS false.
+    // CRITICAL: If switching users or fresh registration, purge all previous user data
+    if (!isSameUser || isNewRegistration) {
+      localStorage.removeItem("dca_artist_profile");
+      localStorage.removeItem("dca_brand_profile");
+      try {
+        sessionStorage.removeItem("dca_last_txnid");
+        sessionStorage.removeItem("payment-status");
+        sessionStorage.removeItem("artist-registration-complete");
+      } catch {}
+    }
+
+    // NEVER inherit premium from a different user or fresh session
     const keepPremium =
       !isNewRegistration && isSameUser && existing?.isPremium === true;
 
@@ -89,35 +99,30 @@ export function setDCAUserSession(
       localStorage.setItem("dca_token", token);
     } else if (!isSameUser || isNewRegistration) {
       localStorage.removeItem("dca_token");
-      try {
-        sessionStorage.removeItem("dca_last_txnid");
-        sessionStorage.removeItem("payment-status");
-      } catch {}
     }
 
-    const resolvedToken = token || (!isNewRegistration && isSameUser ? existing?.token : undefined);
-    const resolvedId = userId || (!isNewRegistration && isSameUser ? existing?.id : undefined);
+    const resolvedToken = (token || (!isNewRegistration && isSameUser ? existing?.token : undefined)) ?? undefined;
+    const resolvedId = (userId || (!isNewRegistration && isSameUser ? existing?.id : undefined)) ?? undefined;
     const resolvedRole = role || (!isNewRegistration && isSameUser ? existing?.role : undefined) || "ARTIST";
 
-    if (isNewRegistration) {
-      localStorage.removeItem("dca_artist_profile");
-      localStorage.removeItem("dca_brand_profile");
-    }
+    const newUserSession: DCAUser = {
+      id: resolvedId,
+      identifier: emailOrPhone,
+      email: emailOrPhone,
+      isLoggedIn: true,
+      loginTime: new Date().toISOString(),
+      role: resolvedRole,
+      token: resolvedToken,
+      isPremium: keepPremium,
+      premiumEntitlement: keepPremium ? existing?.premiumEntitlement : undefined,
+    };
 
-    localStorage.setItem(
-      "dca_user",
-      JSON.stringify({
-        id: resolvedId,
-        identifier: emailOrPhone,
-        email: emailOrPhone,
-        isLoggedIn: true,
-        loginTime: new Date().toISOString(),
-        role: resolvedRole,
-        token: resolvedToken,
-        isPremium: keepPremium,
-        premiumEntitlement: keepPremium ? existing?.premiumEntitlement : undefined,
-      })
-    );
+    localStorage.setItem("dca_user", JSON.stringify(newUserSession));
+
+    // Broadcast session update to all components (Navbar, NotificationBell, Dashboard)
+    try {
+      window.dispatchEvent(new CustomEvent("dca-auth-change", { detail: newUserSession }));
+    } catch {}
   }
 }
 
@@ -211,6 +216,9 @@ export async function fetchBackendEntitlement(): Promise<{
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        clearDCAUserSession();
+      }
       setUserPremiumStatus(false);
       return { isPremium: false, entitlement: null };
     }
@@ -346,11 +354,51 @@ export function getUserProfileStatus(): ProfileStatus {
 
 export function clearDCAUserSession() {
   if (typeof window !== "undefined") {
+    // 1. Remove primary session & token
     localStorage.removeItem("dca_user");
     localStorage.removeItem("dca_token");
+
+    // 2. Remove legacy un-scoped profile data
+    localStorage.removeItem("dca_artist_profile");
+    localStorage.removeItem("dca_brand_profile");
+
+    // 3. Clean all dca_* and user-scoped keys in localStorage
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.startsWith("dca_") ||
+            key.startsWith("artistProfile_") ||
+            key.startsWith("notifications_") ||
+            key === "isPremium")
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+
+    // 4. Clean sessionStorage transaction & registration data
     try {
       sessionStorage.removeItem("dca_last_txnid");
       sessionStorage.removeItem("payment-status");
+      sessionStorage.removeItem("artist-registration-complete");
+      const sessionKeysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.startsWith("dca_") || key.startsWith("artist-"))) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    } catch {}
+
+    // 5. Broadcast global logout and auth-change events
+    try {
+      window.dispatchEvent(new CustomEvent("dca-auth-logout"));
+      window.dispatchEvent(new CustomEvent("dca-auth-change", { detail: null }));
     } catch {}
   }
 }

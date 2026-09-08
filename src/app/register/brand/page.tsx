@@ -26,10 +26,12 @@ export default function BrandRegisterPage() {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
+    password: "",
     phone: "",
     companyName: "",
     designation: "",
@@ -49,98 +51,140 @@ export default function BrandRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
+    setErrorMessage(null);
 
-    if (typeof window !== "undefined") {
-      let token: string | undefined = undefined;
-      let userId: string | undefined = undefined;
+    const normalizedEmail = (formData.email || "").trim().toLowerCase();
+    if (!normalizedEmail) {
+      setErrorMessage("Please enter a valid email address.");
+      return;
+    }
 
-      const existingUser = getUserSession();
-      const existingToken = getAuthToken();
+    if (!formData.fullName.trim()) {
+      setErrorMessage("Please enter the contact person's full name.");
+      return;
+    }
 
-      const normalizedEmail = (formData.email || "").trim().toLowerCase();
+    if (!formData.companyName.trim()) {
+      setErrorMessage("Please enter your company or casting name.");
+      return;
+    }
 
-      // If user is already authenticated with this exact email, preserve credentials
-      if (
-        existingUser &&
-        (existingUser.identifier === normalizedEmail || existingUser.email === normalizedEmail) &&
-        existingToken
-      ) {
-        token = existingToken;
-        userId = existingUser.id;
+    const session = getUserSession();
+    const existingToken = getAuthToken();
+
+    let token = existingToken;
+    let userId = session?.id;
+
+    // If not authenticated as this brand user, register with the user's chosen password
+    const isMatchingSession =
+      Boolean(session?.isLoggedIn) &&
+      (session?.role?.toLowerCase() === "brand") &&
+      (session?.email?.toLowerCase() === normalizedEmail || session?.identifier?.toLowerCase() === normalizedEmail);
+
+    if (!token || !isMatchingSession) {
+      if (!formData.password || formData.password.length < 8) {
+        setErrorMessage("Please enter a secure password with at least 8 characters.");
+        return;
       }
 
-      // If no token, register / login in background to get real backend JWT & userId
-      if (!token && normalizedEmail) {
-        try {
-          const regRes = await fetch(`${API_URL}/api/auth/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: normalizedEmail,
-              password: "BrandPassword@123",
-              role: "BRAND",
-            }),
-          });
-          const regData = await regRes.json();
-          if (regRes.ok && regData.success && regData.token) {
-            token = regData.token;
-            userId = regData.user?.id;
-          } else if (regRes.status === 409) {
-            const loginRes = await fetch(`${API_URL}/api/auth/login`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: normalizedEmail,
-                password: "BrandPassword@123",
-              }),
-            });
-            const loginData = await loginRes.json();
-            if (loginRes.ok && loginData.success && loginData.token) {
-              token = loginData.token;
-              userId = loginData.user?.id;
-            }
-          }
-        } catch (err) {
-          console.warn("Brand auto-registration background attempt:", err);
+      setSubmitting(true);
+
+      try {
+        const regRes = await fetch(`${API_URL}/api/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: normalizedEmail,
+            password: formData.password,
+            role: "BRAND",
+            fullName: formData.fullName.trim(),
+            phone: formData.phone.trim() || undefined,
+          }),
+        });
+
+        const regData = await regRes.json();
+
+        // STRICT SECURITY: On collision, HALT immediately. Never auto-login, never overwrite.
+        if (regRes.status === 409) {
+          setErrorMessage(
+            regData.message ||
+              "This email is already registered. Please log in or use a different email address."
+          );
+          setSubmitting(false);
+          return;
         }
-      }
 
-      // Persist BrandProfile directly to backend PostgreSQL so it immediately enters admin moderation
-      if (token) {
-        try {
-          await fetch(`${API_URL}/api/brand/profile`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              companyName: formData.companyName,
-              contactName: formData.fullName,
-              phone: formData.phone,
-              email: formData.email,
-              website: formData.website,
-              city: formData.city,
-              state: formData.state,
-              companyDescription: formData.description,
-            }),
-          });
-        } catch (err) {
-          console.warn("Failed to persist brand profile to backend:", err);
+        if (!regRes.ok || !regData.success || !regData.token) {
+          setErrorMessage(regData.message || "Registration failed. Please check your information.");
+          setSubmitting(false);
+          return;
         }
+
+        token = regData.token;
+        userId = regData.user?.id;
+        setDCAUserSession(normalizedEmail, "brand", true, token, userId);
+      } catch (err) {
+        console.error("Brand registration network error:", err);
+        setErrorMessage("Network error during registration. Please try again.");
+        setSubmitting(false);
+        return;
       }
+    } else {
+      setSubmitting(true);
+    }
 
-      setDCAUserSession(normalizedEmail || formData.phone, "brand", true, token, userId);
+    // Persist BrandProfile directly to backend
+    if (token) {
+      try {
+        const profileRes = await fetch(`${API_URL}/api/brand/profile`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            companyName: formData.companyName.trim(),
+            contactName: formData.fullName.trim(),
+            phone: formData.phone.trim() || null,
+            email: normalizedEmail,
+            website: formData.website.trim() || null,
+            city: formData.city.trim() || null,
+            state: formData.state.trim() || null,
+            companyDescription: formData.description.trim() || null,
+          }),
+        });
 
+        const profileData = await profileRes.json();
+        if (!profileRes.ok || !profileData.success) {
+          setErrorMessage(profileData.message || "Failed to save brand profile. Please check your details.");
+          setSubmitting(false);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to persist brand profile to backend:", err);
+        setErrorMessage("Network error while saving profile. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+    } else {
+      setErrorMessage("Authentication required. Please log in.");
+      setSubmitting(false);
+      return;
+    }
+
+    setDCAUserSession(normalizedEmail, "brand", true, token, userId);
+
+    try {
       localStorage.setItem(
         "dca_brand_profile",
         JSON.stringify({
-          formData,
+          formData: { ...formData, password: "" },
           savedAt: new Date().toISOString(),
           completionPercentage: 90,
         })
       );
+    } catch {
+      // Ignore localStorage errors
     }
 
     setSubmitting(false);
@@ -169,8 +213,13 @@ export default function BrandRegisterPage() {
       </div>
 
       <section className="mx-auto max-w-5xl px-6 py-8 lg:px-8 lg:py-12">
-        <form onSubmit={handleSubmit} className="space-y-8">
-          
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-8">
+          {errorMessage && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700 shadow-xs">
+              {errorMessage}
+            </div>
+          )}
+
           {/* SECTION 1 — CONTACT PERSON & ACCOUNT */}
           <Reveal>
             <div className="rounded-3xl border border-gray-200 bg-white p-7 shadow-md md:p-10">
@@ -188,7 +237,7 @@ export default function BrandRegisterPage() {
                 </div>
               </div>
 
-              <div className="mt-8 grid gap-6 md:grid-cols-3">
+              <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 {/* Full Name */}
                 <div>
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#111111]">
@@ -212,11 +261,32 @@ export default function BrandRegisterPage() {
                   </label>
                   <input
                     type="email"
+                    id="brand_register_email"
                     name="email"
+                    autoComplete="off"
                     required
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="e.g. rajesh@productionhouse.com"
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#111111]">
+                    Account Password *
+                  </label>
+                  <input
+                    type="password"
+                    id="brand_register_password"
+                    name="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Min 8 characters"
                     className={inputClass}
                   />
                 </div>

@@ -18,7 +18,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
 import { API_URL } from "@/config/env";
-import { getAuthToken, fetchBackendEntitlement } from "@/lib/auth";
+import { getAuthToken, fetchBackendEntitlement, clearDCAUserSession } from "@/lib/auth";
 
 type PaymentMethod = "upi" | "card" | "netbanking";
 
@@ -84,6 +84,14 @@ export default function PaymentPage() {
         message?: string;
         order?: { id: string };
       };
+
+      if (orderRes.status === 401) {
+        clearDCAUserSession();
+        setErrorMsg("Session expired. Please log in again.");
+        setProcessing(false);
+        setTimeout(() => router.push("/login"), 1200);
+        return;
+      }
 
       if (!orderRes.ok || !orderData.success || !orderData.order) {
         setErrorMsg(orderData.message || "Failed to create payment order.");

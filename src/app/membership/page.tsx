@@ -5,8 +5,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  ShieldCheck,
-  XCircle,
   Sparkles,
 } from "lucide-react";
 
@@ -53,14 +51,6 @@ const includedItems = [
     image: "/images/actors/experience skills.jpg",
     alt: "A structured online artist profile experience",
   },
-];
-
-const notGuaranteedItems = [
-  "Guaranteed selection for a casting call",
-  "Guaranteed acting or modeling work",
-  "Guaranteed role in a film, web series or television project",
-  "Guaranteed brand or commercial assignment",
-  "Guaranteed income or number of opportunities",
 ];
 
 export default function MembershipPage() {
@@ -248,35 +238,6 @@ export default function MembershipPage() {
             </div>
           </Reveal>
         </div>
-      </section>
-
-      {/* No Guarantee Notice */}
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <Reveal>
-          <div className="rounded-xl border border-gray-200 bg-[#F7F7F5] p-8 shadow-md">
-            <div className="max-w-3xl">
-              <ShieldCheck className="h-8 w-8 text-[#D4AF37]" />
-              <span className="mt-3 block text-xs font-bold uppercase tracking-[0.25em] text-[#D4AF37]">
-                Important Information
-              </span>
-              <h2 className="mt-2 font-serif text-2xl font-bold text-[#111111]">
-                Membership does not guarantee work or selection.
-              </h2>
-              <p className="mt-3 text-xs leading-relaxed text-[#555555]">
-                Casting decisions depend on the requirements and selection process of individual opportunities. Registration or membership should not be understood as a promise of employment or role selection.
-              </p>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {notGuaranteedItems.map((item) => (
-                <div key={item} className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
-                  <XCircle className="h-4 w-4 shrink-0 text-red-600" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
       </section>
 
       {/* Global CTA */}

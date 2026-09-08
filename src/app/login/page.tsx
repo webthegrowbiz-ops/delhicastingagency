@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck, Sparkles, Key, QrCode, Copy, Check } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
-import { setDCAUserSession } from "@/lib/auth";
+import { setDCAUserSession, getUserSession } from "@/lib/auth";
 import { API_URL } from "@/config/env";
 
 const inputClass =
@@ -22,6 +22,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [passwordResetNeeded, setPasswordResetNeeded] = useState(false);
 
   // MFA State Management
   const [mfaStep, setMfaStep] = useState<"NONE" | "SETUP" | "VERIFY" | "BACKUP_CODES">("NONE");
@@ -36,6 +37,18 @@ function LoginContent() {
   const success = isRegistered
     ? "Account created successfully! Please log in with your email and password."
     : "";
+
+  // Auto-redirect authenticated users directly to their dashboard/profile
+  useEffect(() => {
+    const session = getUserSession();
+    if (session && session.isLoggedIn) {
+      if (session.role === "ADMIN") {
+        router.replace("/admin/dashboard");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +76,16 @@ function LoginContent() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setError(data.message || "Invalid email or password. Please try again.");
+        if (data.passwordResetRequired) {
+          setPasswordResetNeeded(true);
+          setError(
+            data.message ||
+              "A password reset is required for your account before you can log in. Please use the reset link sent to your email or click below to request a new link."
+          );
+        } else {
+          setPasswordResetNeeded(false);
+          setError(data.message || "Invalid email or password. Please try again.");
+        }
         setLoading(false);
         return;
       }
@@ -110,7 +132,7 @@ function LoginContent() {
       } else if (data.user.role === "BRAND" || data.user.role === "brand") {
         router.push("/dashboard");
       } else {
-        router.push("/profile/setup");
+        router.push("/dashboard");
       }
     } catch (err: unknown) {
       console.error("Login request error:", err);
@@ -193,16 +215,50 @@ function LoginContent() {
         </div>
       )}
 
-      {/* Error Message */}
+      {/* Error / Password Reset Warning Message */}
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-center text-xs font-semibold text-red-600">
-          {error}
+        <div
+          className={`mb-4 rounded-xl border p-3 text-center text-xs font-semibold ${
+            passwordResetNeeded
+              ? "border-amber-300 bg-amber-50 text-amber-900"
+              : "border-red-200 bg-red-50 text-red-600"
+          }`}
+        >
+          <div>{error}</div>
+          {passwordResetNeeded && (
+            <div className="mt-2.5">
+              <Link
+                href="/forgot-password"
+                className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-[#D4AF37] underline hover:text-[#b89528]"
+              >
+                Request Password Reset Link &rarr;
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
       {/* STEP: STANDARD LOGIN */}
       {mfaStep === "NONE" && (
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
+          {/* Decoy hidden inputs to absorb aggressive browser autofill */}
+          <input
+            type="text"
+            name="fake_username_autofill"
+            style={{ display: "none" }}
+            tabIndex={-1}
+            aria-hidden="true"
+            autoComplete="off"
+          />
+          <input
+            type="password"
+            name="fake_password_autofill"
+            style={{ display: "none" }}
+            tabIndex={-1}
+            aria-hidden="true"
+            autoComplete="new-password"
+          />
+
           <div>
             <label
               htmlFor="identifier"
@@ -218,6 +274,7 @@ function LoginContent() {
                 id="identifier"
                 name="identifier"
                 type="text"
+                autoComplete="off"
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -235,16 +292,12 @@ function LoginContent() {
               >
                 Password
               </label>
-              <a
-                href="#forgot-password"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert("Password reset instructions will be sent to your registered Email/Phone.");
-                }}
+              <Link
+                href="/forgot-password"
                 className="text-xs font-semibold text-[#111111] hover:text-[#D4AF37] transition-colors"
               >
                 Forgot Password?
-              </a>
+              </Link>
             </div>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
@@ -254,6 +307,7 @@ function LoginContent() {
                 id="password"
                 name="password"
                 type="password"
+                autoComplete="new-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

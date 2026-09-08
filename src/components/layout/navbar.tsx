@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/lib/site-navigation";
 import { AccountTypeModal } from "@/components/auth/AccountTypeModal";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { getUserSession, type DCAUser } from "@/lib/auth";
 
 function DesktopDropdown({ group }: { group: NavGroup }) {
   const [hoveredItem, setHoveredItem] = useState<NavItem | null>(null);
@@ -127,6 +128,24 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileGroup, setMobileGroup] = useState<string | null>(null);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<DCAUser | null>(null);
+
+  useEffect(() => {
+    const syncUser = () => {
+      setCurrentUser(getUserSession());
+    };
+    syncUser();
+
+    window.addEventListener("dca-auth-change", syncUser);
+    window.addEventListener("dca-auth-logout", syncUser);
+    window.addEventListener("storage", syncUser);
+
+    return () => {
+      window.removeEventListener("dca-auth-change", syncUser);
+      window.removeEventListener("dca-auth-logout", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -225,7 +244,7 @@ export function Navbar() {
                 <NotificationBell />
               </div>
 
-              {/* ACCOUNT SECONDARY CTA */}
+              {/* ACCOUNT / DASHBOARD SECONDARY CTA */}
               <motion.div
                 whileHover={{ y: -1, scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -233,27 +252,44 @@ export function Navbar() {
                 className="shrink-0 flex items-center"
               >
                 <Link
-                  href="/login"
+                  href={currentUser?.isLoggedIn ? (currentUser.role === "ADMIN" ? "/admin/dashboard" : "/dashboard") : "/login"}
                   className="group inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-[#F7F7F5] px-2.5 lg:px-3.5 xl:px-4 py-1.5 xl:py-2 text-[10.5px] lg:text-[11px] xl:text-[11.5px] 2xl:text-[12px] font-bold uppercase tracking-[0.1em] xl:tracking-[0.14em] text-[#111111] shadow-2xs transition-all duration-300 hover:border-[#D4AF37]/60 hover:bg-white hover:text-[#D4AF37] hover:shadow-xs whitespace-nowrap"
                 >
                   <User className="h-3.5 w-3.5 text-[#D4AF37] transition-transform duration-300 group-hover:scale-108 shrink-0" />
-                  <span>Account</span>
+                  <span>{currentUser?.isLoggedIn ? "My Profile" : "Account"}</span>
                   <ArrowRight className="h-3.5 w-3.5 opacity-0 -ml-1.5 transition-all duration-300 group-hover:opacity-100 group-hover:ml-0 text-[#D4AF37] shrink-0" />
                 </Link>
               </motion.div>
 
-              {/* REGISTER NOW PRIMARY CTA */}
-              <motion.button
-                type="button"
-                whileHover={{ y: -2, scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                onClick={handleRegisterNowClick}
-                className="group flex items-center gap-1.5 lg:gap-2 rounded-full border-2 border-[#D4AF37] bg-white px-3 lg:px-3.5 xl:px-4.5 py-1.5 lg:py-2 xl:py-2.5 text-[10.5px] lg:text-[11px] xl:text-[11.5px] 2xl:text-[12px] font-bold uppercase tracking-[0.12em] xl:tracking-[0.16em] text-[#111111] transition duration-300 hover:border-[#D4AF37] hover:bg-[#D4AF37] hover:text-white shadow-xs hover:shadow-md hover:shadow-[#D4AF37]/20 whitespace-nowrap cursor-pointer shrink-0"
-              >
-                <span>REGISTER NOW</span>
-                <ArrowRight className="h-3.5 w-3.5 transition duration-300 group-hover:translate-x-1.5 text-[#D4AF37] group-hover:text-white shrink-0" />
-              </motion.button>
+              {/* REGISTER NOW / DASHBOARD PRIMARY CTA */}
+              {currentUser?.isLoggedIn ? (
+                <motion.div
+                  whileHover={{ y: -2, scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="shrink-0 flex items-center"
+                >
+                  <Link
+                    href={currentUser.role === "ADMIN" ? "/admin/dashboard" : "/dashboard"}
+                    className="group flex items-center gap-1.5 lg:gap-2 rounded-full border-2 border-[#D4AF37] bg-[#D4AF37] px-3 lg:px-3.5 xl:px-4.5 py-1.5 lg:py-2 xl:py-2.5 text-[10.5px] lg:text-[11px] xl:text-[11.5px] 2xl:text-[12px] font-bold uppercase tracking-[0.12em] xl:tracking-[0.16em] text-white transition duration-300 hover:bg-[#C59B27] hover:border-[#C59B27] shadow-xs hover:shadow-md hover:shadow-[#D4AF37]/20 whitespace-nowrap cursor-pointer shrink-0"
+                  >
+                    <span>DASHBOARD</span>
+                    <ArrowRight className="h-3.5 w-3.5 transition duration-300 group-hover:translate-x-1.5 text-white shrink-0" />
+                  </Link>
+                </motion.div>
+              ) : (
+                <motion.button
+                  type="button"
+                  whileHover={{ y: -2, scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  onClick={handleRegisterNowClick}
+                  className="group flex items-center gap-1.5 lg:gap-2 rounded-full border-2 border-[#D4AF37] bg-white px-3 lg:px-3.5 xl:px-4.5 py-1.5 lg:py-2 xl:py-2.5 text-[10.5px] lg:text-[11px] xl:text-[11.5px] 2xl:text-[12px] font-bold uppercase tracking-[0.12em] xl:tracking-[0.16em] text-[#111111] transition duration-300 hover:border-[#D4AF37] hover:bg-[#D4AF37] hover:text-white shadow-xs hover:shadow-md hover:shadow-[#D4AF37]/20 whitespace-nowrap cursor-pointer shrink-0"
+                >
+                  <span>REGISTER NOW</span>
+                  <ArrowRight className="h-3.5 w-3.5 transition duration-300 group-hover:translate-x-1.5 text-[#D4AF37] group-hover:text-white shrink-0" />
+                </motion.button>
+              )}
             </div>
 
           </div>
@@ -354,27 +390,38 @@ export function Navbar() {
                   </div>
                 ))}
 
-                {/* Mobile Login option */}
+                {/* Mobile Account / Dashboard option */}
                 <div className="border-b border-gray-100 py-2">
                   <Link
-                    href="/login"
+                    href={currentUser?.isLoggedIn ? (currentUser.role === "ADMIN" ? "/admin/dashboard" : "/dashboard") : "/login"}
                     onClick={closeMobile}
                     className="flex min-h-12 items-center gap-2 text-base font-semibold uppercase tracking-wider text-[#D4AF37]"
                   >
                     <User className="h-5 w-5" />
-                    <span>Login to Artist Account</span>
+                    <span>{currentUser?.isLoggedIn ? "My Profile / Dashboard" : "Login to Artist Account"}</span>
                   </Link>
                 </div>
               </nav>
 
-              <button
-                type="button"
-                onClick={handleRegisterNowClick}
-                className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[#D4AF37] bg-[#D4AF37] px-6 py-4 text-xs font-bold uppercase tracking-[0.18em] text-white transition active:scale-[0.98] shadow-md cursor-pointer"
-              >
-                <span>REGISTER NOW</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
+              {currentUser?.isLoggedIn ? (
+                <Link
+                  href={currentUser.role === "ADMIN" ? "/admin/dashboard" : "/dashboard"}
+                  onClick={closeMobile}
+                  className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[#D4AF37] bg-[#D4AF37] px-6 py-4 text-xs font-bold uppercase tracking-[0.18em] text-white transition active:scale-[0.98] shadow-md cursor-pointer"
+                >
+                  <span>VIEW MY PROFILE</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRegisterNowClick}
+                  className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-[#D4AF37] bg-[#D4AF37] px-6 py-4 text-xs font-bold uppercase tracking-[0.18em] text-white transition active:scale-[0.98] shadow-md cursor-pointer"
+                >
+                  <span>REGISTER NOW</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </motion.aside>
         )}

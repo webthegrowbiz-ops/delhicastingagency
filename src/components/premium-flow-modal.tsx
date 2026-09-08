@@ -19,11 +19,9 @@ import {
   isUserAuthenticated,
   setUserRole,
   getAuthToken,
-  setDCAUserSession,
-  fetchBackendEntitlement,
+  clearDCAUserSession,
 } from "@/lib/auth";
 import { API_URL } from "@/config/env";
-import { launchRazorpayCheckout } from "@/lib/razorpay";
 import { submitPayuForm, PayuFormPayload } from "@/lib/payu";
 
 export type PremiumModalStep =
@@ -48,7 +46,6 @@ export function PremiumFlowModal({
 }: PremiumFlowModalProps) {
   const router = useRouter();
   const [step, setStep] = useState<PremiumModalStep>("role_select");
-  const [gateway, setGateway] = useState<"razorpay" | "payu">("razorpay");
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -103,73 +100,7 @@ export function PremiumFlowModal({
   };
 
   const ensureValidToken = async (): Promise<string | null> => {
-    let token = getAuthToken();
-    if (token) return token;
-
-    const currentSession = getUserSession();
-    const email =
-      currentSession?.email ||
-      (currentSession?.identifier?.includes("@") ? currentSession.identifier : null);
-
-    if (!email) return null;
-
-    const role =
-      (currentSession?.role || (step === "artist_checkout" ? "ARTIST" : "BRAND")).toUpperCase() === "ARTIST"
-        ? "ARTIST"
-        : "BRAND";
-    const defaultPassword =
-      role === "ARTIST" ? "ArtistPassword@123" : "BrandPassword@123";
-
-    try {
-      const regRes = await fetch(`${API_URL}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password: defaultPassword,
-          role,
-        }),
-      });
-      const regData = await regRes.json();
-      if (regRes.ok && regData.success && regData.token) {
-        localStorage.setItem("dca_token", regData.token);
-        setDCAUserSession(
-          email,
-          role.toLowerCase() as any,
-          false,
-          regData.token,
-          regData.user?.id
-        );
-        return regData.token;
-      }
-
-      if (regRes.status === 409) {
-        const loginRes = await fetch(`${API_URL}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: email.trim().toLowerCase(),
-            password: defaultPassword,
-          }),
-        });
-        const loginData = await loginRes.json();
-        if (loginRes.ok && loginData.success && loginData.token) {
-          localStorage.setItem("dca_token", loginData.token);
-          setDCAUserSession(
-            email,
-            role.toLowerCase() as any,
-            false,
-            loginData.token,
-            loginData.user?.id
-          );
-          return loginData.token;
-        }
-      }
-    } catch (err) {
-      console.warn("Background auto-authentication error:", err);
-    }
-
-    return null;
+    return getAuthToken();
   };
 
   const initiatePayuFlow = async (plan: "ARTIST_PREMIUM" | "BRAND_PREMIUM") => {
@@ -177,15 +108,16 @@ export function PremiumFlowModal({
     setIsProcessing(true);
     setPaymentError(null);
 
-    let token = await ensureValidToken();
+    const token = await ensureValidToken();
     if (!token) {
-      setPaymentError("Authentication required. Please login again.");
+      setPaymentError("Authentication required. Please log in to continue.");
       setIsProcessing(false);
+      router.push("/login");
       return;
     }
 
     try {
-      let initRes = await fetch(`${API_URL}/api/payments/payu/initiate`, {
+      const initRes = await fetch(`${API_URL}/api/payments/payu/initiate`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -195,18 +127,11 @@ export function PremiumFlowModal({
       });
 
       if (initRes.status === 401) {
-        localStorage.removeItem("dca_token");
-        token = await ensureValidToken();
-        if (token) {
-          initRes = await fetch(`${API_URL}/api/payments/payu/initiate`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ plan }),
-          });
-        }
+        clearDCAUserSession();
+        setPaymentError("Session expired. Please log in again.");
+        setIsProcessing(false);
+        router.push("/login");
+        return;
       }
 
       const initData = (await initRes.json()) as {
@@ -230,193 +155,11 @@ export function PremiumFlowModal({
   };
 
   const handleArtistPayment = async () => {
-    if (gateway === "payu") {
-      await initiatePayuFlow("ARTIST_PREMIUM");
-      return;
-    }
-
-    if (isProcessing) return;
-    setIsProcessing(true);
-    setPaymentError(null);
-
-    const token = await ensureValidToken();
-    if (!token) {
-      setPaymentError("Authentication required. Please login again.");
-      setIsProcessing(false);
-      return;
-    }
-
-    try {
-      // 1. Create Payment Order on Backend (ARTIST_PREMIUM = ₹1,999)
-      const orderRes = await fetch(`${API_URL}/api/payments/create-order`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ plan: "ARTIST_PREMIUM" }),
-      });
-
-      const orderData = (await orderRes.json()) as {
-        success: boolean;
-        message?: string;
-        order?: { id: string; razorpayOrderId?: string; amount: number };
-      };
-
-      if (!orderRes.ok || !orderData.success || !orderData.order) {
-        setPaymentError(orderData.message || "Failed to create payment order.");
-        setIsProcessing(false);
-        return;
-      }
-
-      const paymentRecordId = orderData.order.id;
-
-      // 2. Launch Gateway Checkout
-      await launchRazorpayCheckout({
-        name: session?.identifier || session?.email || "Artist Member",
-        email: session?.email || "artist@example.com",
-        contact: session?.identifier || "9876543210",
-        amount: orderData.order.amount,
-        order_id: orderData.order.razorpayOrderId || paymentRecordId,
-        description: "Artist 3-Month Premium Membership — ₹1,999",
-        onSuccess: async (rzpRes) => {
-          try {
-            // 3. Verify Payment on Backend
-            const verifyRes = await fetch(`${API_URL}/api/payments/verify`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                razorpay_order_id: rzpRes.razorpay_order_id || orderData.order?.razorpayOrderId || paymentRecordId,
-                razorpay_payment_id: rzpRes.razorpay_payment_id,
-                razorpay_signature: rzpRes.razorpay_signature,
-              }),
-            });
-
-            const verifyData = (await verifyRes.json()) as {
-              success: boolean;
-              message?: string;
-            };
-
-            if (verifyRes.ok && verifyData.success) {
-              setUserRole("artist");
-              await fetchBackendEntitlement();
-              setIsProcessing(false);
-              setStep("artist_success");
-            } else {
-              setPaymentError(verifyData.message || "Payment verification failed.");
-              setIsProcessing(false);
-            }
-          } catch {
-            setPaymentError("Network error during payment verification.");
-            setIsProcessing(false);
-          }
-        },
-        onDismiss: () => {
-          setIsProcessing(false);
-        },
-      });
-    } catch {
-      setPaymentError("Network error. Failed to initiate payment.");
-      setIsProcessing(false);
-    }
+    await initiatePayuFlow("ARTIST_PREMIUM");
   };
 
   const handleBrandPayment = async () => {
-    if (gateway === "payu") {
-      await initiatePayuFlow("BRAND_PREMIUM");
-      return;
-    }
-
-    if (isProcessing) return;
-    setIsProcessing(true);
-    setPaymentError(null);
-
-    const token = await ensureValidToken();
-    if (!token) {
-      setPaymentError("Authentication required. Please login again.");
-      setIsProcessing(false);
-      return;
-    }
-
-    try {
-      // 1. Create Payment Order on Backend (BRAND_PREMIUM = ₹9,999)
-      const orderRes = await fetch(`${API_URL}/api/payments/create-order`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ plan: "BRAND_PREMIUM" }),
-      });
-
-      const orderData = (await orderRes.json()) as {
-        success: boolean;
-        message?: string;
-        order?: { id: string; razorpayOrderId?: string; amount: number };
-      };
-
-      if (!orderRes.ok || !orderData.success || !orderData.order) {
-        setPaymentError(orderData.message || "Failed to create payment order.");
-        setIsProcessing(false);
-        return;
-      }
-
-      const paymentRecordId = orderData.order.id;
-
-      // 2. Launch Gateway Checkout
-      await launchRazorpayCheckout({
-        name: session?.identifier || session?.email || "Brand Casting Account",
-        email: session?.email || "brand@example.com",
-        contact: session?.identifier || "9876543210",
-        amount: orderData.order.amount,
-        order_id: orderData.order.razorpayOrderId || paymentRecordId,
-        description: "Brand 3-Month Premium Casting Account — ₹9,999",
-        onSuccess: async (rzpRes) => {
-          try {
-            // 3. Verify Payment on Backend
-            const verifyRes = await fetch(`${API_URL}/api/payments/verify`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                razorpay_order_id: rzpRes.razorpay_order_id || orderData.order?.razorpayOrderId || paymentRecordId,
-                razorpay_payment_id: rzpRes.razorpay_payment_id,
-                razorpay_signature: rzpRes.razorpay_signature,
-              }),
-            });
-
-            const verifyData = (await verifyRes.json()) as {
-              success: boolean;
-              message?: string;
-            };
-
-            if (verifyRes.ok && verifyData.success) {
-              setUserRole("brand");
-              await fetchBackendEntitlement();
-              setIsProcessing(false);
-              setStep("brand_success");
-            } else {
-              setPaymentError(verifyData.message || "Payment verification failed.");
-              setIsProcessing(false);
-            }
-          } catch {
-            setPaymentError("Network error during payment verification.");
-            setIsProcessing(false);
-          }
-        },
-        onDismiss: () => {
-          setIsProcessing(false);
-        },
-      });
-    } catch {
-      setPaymentError("Network error. Failed to initiate payment.");
-      setIsProcessing(false);
-    }
+    await initiatePayuFlow("BRAND_PREMIUM");
   };
 
   return (
@@ -581,34 +324,9 @@ export function PremiumFlowModal({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[#666666]">
-                  Select Payment Gateway
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setGateway("razorpay")}
-                    className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition cursor-pointer ${
-                      gateway === "razorpay"
-                        ? "border-[#D4AF37] bg-[#D4AF37]/10 text-black shadow-xs"
-                        : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    <span>Razorpay</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGateway("payu")}
-                    className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition cursor-pointer ${
-                      gateway === "payu"
-                        ? "border-[#D4AF37] bg-[#D4AF37]/10 text-black shadow-xs"
-                        : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    <span>PayU Hosted</span>
-                  </button>
-                </div>
+              <div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700">
+                <ShieldCheck size={16} className="text-[#D4AF37]" />
+                <span>Secured 256-Bit Payment via PayU Gateway</span>
               </div>
 
               <Button
@@ -620,11 +338,11 @@ export function PremiumFlowModal({
                 {isProcessing ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Connecting to Payment Gateway...</span>
+                    <span>Connecting to PayU...</span>
                   </span>
                 ) : (
                   <>
-                    <span>Proceed with {gateway === "payu" ? "PayU" : "Razorpay"} — ₹1,999</span>
+                    <span>Proceed to PayU Checkout — ₹1,999</span>
                     <ArrowRight size={16} className="ml-2" />
                   </>
                 )}
@@ -698,34 +416,9 @@ export function PremiumFlowModal({
                 ))}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[#666666]">
-                  Select Payment Gateway
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setGateway("razorpay")}
-                    className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition cursor-pointer ${
-                      gateway === "razorpay"
-                        ? "border-[#D4AF37] bg-[#D4AF37]/10 text-black shadow-xs"
-                        : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    <span>Razorpay</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGateway("payu")}
-                    className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition cursor-pointer ${
-                      gateway === "payu"
-                        ? "border-[#D4AF37] bg-[#D4AF37]/10 text-black shadow-xs"
-                        : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    <span>PayU Hosted</span>
-                  </button>
-                </div>
+              <div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700">
+                <ShieldCheck size={16} className="text-[#D4AF37]" />
+                <span>Secured 256-Bit Payment via PayU Gateway</span>
               </div>
 
               <Button
@@ -737,11 +430,11 @@ export function PremiumFlowModal({
                 {isProcessing ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Connecting to Payment Gateway...</span>
+                    <span>Connecting to PayU...</span>
                   </span>
                 ) : (
                   <>
-                    <span>Proceed with {gateway === "payu" ? "PayU" : "Razorpay"} — ₹9,999</span>
+                    <span>Proceed to PayU Checkout — ₹9,999</span>
                     <ArrowRight size={16} className="ml-2" />
                   </>
                 )}

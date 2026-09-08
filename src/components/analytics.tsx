@@ -50,7 +50,7 @@ export function Analytics() {
   );
 }
 
-/** Fire this from the client after a successful Razorpay payment. */
+/** Fire this from the client after a successful PayU payment. */
 export function trackPurchase(amount: number) {
   if (typeof window === "undefined") return;
   const w = window as unknown as {

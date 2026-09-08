@@ -6,6 +6,13 @@ import {
   XCircle,
   AlertCircle,
   Briefcase,
+  CreditCard,
+  AlertTriangle,
+  Clock,
+  Sparkles,
+  LogIn,
+  ShieldAlert,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,8 +26,18 @@ export interface NotificationItem {
     | "NEW_APPLICATION"
     | "CASTING_APPROVED"
     | "CASTING_REJECTED"
+    | "CASTING_CLOSED"
     | "ARTIST_PROFILE_APPROVED"
     | "ARTIST_PROFILE_REJECTED"
+    | "BRAND_PROFILE_APPROVED"
+    | "BRAND_PROFILE_REJECTED"
+    | "PROFILE_SUSPENDED"
+    | "PAYMENT_SUCCESSFUL"
+    | "PAYMENT_FAILED"
+    | "PREMIUM_EXPIRING"
+    | "PREMIUM_EXPIRED"
+    | "WELCOME"
+    | "LOGIN_SUCCESSFUL"
     | "SYSTEM"
     | string;
   title: string;
@@ -41,6 +58,42 @@ export function getNotificationIcon(type: string): {
   bgClass: string;
 } {
   switch (type) {
+    case "PAYMENT_SUCCESSFUL":
+      return {
+        icon: CreditCard,
+        colorClass: "text-emerald-600",
+        bgClass: "bg-emerald-50 border-emerald-200",
+      };
+    case "PAYMENT_FAILED":
+      return {
+        icon: AlertTriangle,
+        colorClass: "text-rose-600",
+        bgClass: "bg-rose-50 border-rose-200",
+      };
+    case "PREMIUM_EXPIRING":
+      return {
+        icon: Clock,
+        colorClass: "text-amber-600",
+        bgClass: "bg-amber-50 border-amber-200",
+      };
+    case "PREMIUM_EXPIRED":
+      return {
+        icon: AlertCircle,
+        colorClass: "text-rose-600",
+        bgClass: "bg-rose-50 border-rose-200",
+      };
+    case "WELCOME":
+      return {
+        icon: Sparkles,
+        colorClass: "text-[#D4AF37]",
+        bgClass: "bg-[#D4AF37]/10 border-[#D4AF37]/30",
+      };
+    case "LOGIN_SUCCESSFUL":
+      return {
+        icon: LogIn,
+        colorClass: "text-blue-600",
+        bgClass: "bg-blue-50 border-blue-200",
+      };
     case "NEW_APPLICATION":
       return {
         icon: UserPlus,
@@ -56,6 +109,7 @@ export function getNotificationIcon(type: string): {
     case "APPLICATION_SELECTED":
     case "CASTING_APPROVED":
     case "ARTIST_PROFILE_APPROVED":
+    case "BRAND_PROFILE_APPROVED":
       return {
         icon: CheckCircle2,
         colorClass: "text-emerald-600",
@@ -63,6 +117,7 @@ export function getNotificationIcon(type: string): {
       };
     case "APPLICATION_REJECTED":
     case "CASTING_REJECTED":
+    case "BRAND_PROFILE_REJECTED":
       return {
         icon: XCircle,
         colorClass: "text-rose-600",
@@ -73,6 +128,18 @@ export function getNotificationIcon(type: string): {
         icon: AlertCircle,
         colorClass: "text-rose-600",
         bgClass: "bg-rose-50 border-rose-200",
+      };
+    case "PROFILE_SUSPENDED":
+      return {
+        icon: ShieldAlert,
+        colorClass: "text-rose-600",
+        bgClass: "bg-rose-50 border-rose-200",
+      };
+    case "CASTING_CLOSED":
+      return {
+        icon: Lock,
+        colorClass: "text-gray-500",
+        bgClass: "bg-gray-100 border-gray-200",
       };
     case "APPLICATION_SUBMITTED":
       return {

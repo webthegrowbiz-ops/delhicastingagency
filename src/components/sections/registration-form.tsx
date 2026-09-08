@@ -23,8 +23,9 @@ import {
 } from "@/lib/validation";
 
 import { Button } from "@/components/ui/button";
-import { launchRazorpayCheckout } from "@/lib/razorpay";
-import { setDCAUserSession } from "@/lib/auth";
+import { submitPayuForm } from "@/lib/payu";
+import { setDCAUserSession, getAuthToken } from "@/lib/auth";
+import { API_URL } from "@/config/env";
 import { trackPurchase } from "@/components/analytics";
 import { SITE } from "@/lib/constants";
 
@@ -157,29 +158,34 @@ export function RegistrationForm({ onSuccess }: Props) {
     try {
       setSubmitting(true);
 
-      // Complete registration session first
-      setDCAUserSession(data.email || data.mobile, "artist", true);
+      const token = getAuthToken();
+      if (!token) {
+        // Redirect to profile setup to complete full account creation with password
+        window.location.href = `/profile/setup?email=${encodeURIComponent(data.email || "")}&name=${encodeURIComponent(data.fullName || "")}&phone=${encodeURIComponent(data.mobile || "")}`;
+        return;
+      }
 
-      await launchRazorpayCheckout({
-        name: data.fullName,
-        email: data.email,
-        contact: data.mobile,
-
-        onSuccess: (rzpRes) => {
-          trackPurchase(SITE.price);
-          const payId = typeof rzpRes === "string" ? rzpRes : rzpRes.razorpay_payment_id;
-          onSuccess(`WTB-${payId.slice(-6).toUpperCase()}`);
-          setSubmitting(false);
+      const initRes = await fetch(`${API_URL}/api/payments/payu/initiate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-
-        onDismiss: () => {
-          setSubmitting(false);
-          onSuccess(`WTB-FREE-${Date.now().toString().slice(-6)}`);
-        },
+        body: JSON.stringify({
+          plan: "ARTIST_PREMIUM",
+        }),
       });
+
+      const initData = await initRes.json();
+      if (initRes.ok && initData.success && initData.payment) {
+        trackPurchase(SITE.price);
+        submitPayuForm(initData.action, initData.payment);
+      } else {
+        alert(initData.message || "Unable to initiate PayU payment. Please check your account dashboard.");
+        setSubmitting(false);
+      }
     } catch (error) {
       console.error("Registration/payment error:", error);
-
       setSubmitting(false);
     }
   };
@@ -557,7 +563,7 @@ export function RegistrationForm({ onSuccess }: Props) {
 
             <div className="mt-10 flex flex-wrap justify-center gap-3">
               {[
-                "🔒 Razorpay",
+                "🔒 PayU Gateway",
                 "📲 UPI",
                 "💳 Credit / Debit Card",
                 "🏦 Net Banking",
@@ -619,16 +625,16 @@ export function RegistrationForm({ onSuccess }: Props) {
                       }}
                       className="mr-2 inline-block h-5 w-5 rounded-full border-2 border-white border-t-transparent"
                     />
-                    Opening Secure Checkout...
+                    Opening Secure PayU Checkout...
                   </>
                 ) : (
-                  <>Submit</>
+                  <>Submit &amp; Pay ₹1,999</>
                 )}
               </Button>
             </motion.div>
 
             <p className="mt-5 text-center text-sm leading-7 text-[#555555]">
-              Your payment is processed securely through Razorpay. Your personal
+              Your payment is processed securely through PayU. Your personal
               information is protected and never shared with third parties.
             </p>
           </motion.div>

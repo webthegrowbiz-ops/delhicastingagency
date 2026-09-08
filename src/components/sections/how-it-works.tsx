@@ -22,7 +22,7 @@ const STEPS: Step[] = [
     num: "02",
     tag: "PAY SECURELY",
     title: "One-time payment",
-    body: "Complete your 3-month membership via Razorpay, UPI or card.",
+    body: "Complete your 3-month membership via PayU, UPI, Net Banking or card.",
   },
   {
     num: "03",

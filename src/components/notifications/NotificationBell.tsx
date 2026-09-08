@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { API_URL } from "@/config/env";
-import { getAuthToken } from "@/lib/auth";
+import { getAuthToken, clearDCAUserSession } from "@/lib/auth";
 import { NotificationDropdown } from "./NotificationDropdown";
 import type { NotificationItem } from "./notification-utils";
 
@@ -27,7 +27,11 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
   // ============================================================
   const fetchUnreadCount = useCallback(async () => {
     const token = getAuthToken();
-    if (!token) return;
+    if (!token) {
+      setUnreadCount(0);
+      setNotifications([]);
+      return;
+    }
 
     try {
       const response = await fetch(`${API_URL}/api/notifications/unread-count`, {
@@ -36,12 +40,24 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
         },
       });
 
-      if (!response.ok) return;
+      // Discard response if user switched while request was in-flight
+      if (getAuthToken() !== token) return;
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearDCAUserSession();
+          setUnreadCount(0);
+          setNotifications([]);
+        }
+        return;
+      }
 
       const data = (await response.json()) as {
         success: boolean;
         count?: number;
       };
+
+      if (getAuthToken() !== token) return;
 
       if (data.success && typeof data.count === "number") {
         setUnreadCount(data.count);
@@ -51,12 +67,40 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
     }
   }, []);
 
+  // Listen for user login, logout, and session changes to isolate notifications immediately
+  useEffect(() => {
+    const handleAuthChange = () => {
+      const token = getAuthToken();
+      if (!token) {
+        setUnreadCount(0);
+        setNotifications([]);
+        setError(null);
+        setIsOpen(false);
+      } else {
+        // Clear previous user's notifications immediately and fetch for new user
+        setNotifications([]);
+        setUnreadCount(0);
+        void fetchUnreadCount();
+      }
+    };
+
+    window.addEventListener("dca-auth-change", handleAuthChange);
+    window.addEventListener("dca-auth-logout", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("dca-auth-change", handleAuthChange);
+      window.removeEventListener("dca-auth-logout", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
+  }, [fetchUnreadCount]);
+
   // Fetch unread count on mount & set up intermittent polling (every 30s)
   useEffect(() => {
     let active = true;
 
     const runFetch = () => {
-      if (active) {
+      if (active && getAuthToken()) {
         void fetchUnreadCount();
       }
     };
@@ -76,6 +120,8 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
   const fetchNotifications = useCallback(async () => {
     const token = getAuthToken();
     if (!token) {
+      setNotifications([]);
+      setUnreadCount(0);
       setError("Authentication token required.");
       return;
     }
@@ -90,11 +136,24 @@ export function NotificationBell({ className = "" }: NotificationBellProps) {
         },
       });
 
+      // Discard if user switched while request was in-flight
+      if (getAuthToken() !== token) return;
+
       const data = (await response.json()) as {
         success: boolean;
         message?: string;
         notifications?: NotificationItem[];
       };
+
+      if (getAuthToken() !== token) return;
+
+      if (response.status === 401) {
+        clearDCAUserSession();
+        setNotifications([]);
+        setUnreadCount(0);
+        setError("Session expired. Please log in.");
+        return;
+      }
 
       if (response.ok && data.success && Array.isArray(data.notifications)) {
         setNotifications(data.notifications);

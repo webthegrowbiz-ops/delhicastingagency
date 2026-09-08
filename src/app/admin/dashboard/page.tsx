@@ -18,6 +18,7 @@ import {
   Building2,
   BarChart3,
   CreditCard,
+  LogOut,
 } from "lucide-react";
 
 import { PageHero } from "@/components/ui/page-hero";
@@ -28,6 +29,7 @@ import {
   getUserSession,
   getAuthToken,
   clearDCAUserSession,
+  logoutDCAUserSession,
 } from "@/lib/auth";
 import { API_URL } from "@/config/env";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -145,6 +147,8 @@ interface AdminPaymentRecord {
   status: "PAID" | "PENDING" | "FAILED" | "REFUNDED";
   razorpayOrderId: string | null;
   razorpayPaymentId: string | null;
+  payuTxnId?: string | null;
+  payuPaymentId?: string | null;
   paidAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -412,21 +416,50 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      requestAnimationFrame(() => {
-        const session = getUserSession();
-        if (session?.role !== "admin" && session?.role !== "ADMIN") {
-          router.push("/dashboard");
-          return;
-        }
+      const loadAdminData = () => {
+        requestAnimationFrame(() => {
+          const session = getUserSession();
+          if (session?.role !== "admin" && session?.role !== "ADMIN") {
+            router.push("/dashboard");
+            return;
+          }
 
-        fetchStats();
-        fetchPendingArtists();
-        fetchPendingBrands();
-        fetchPendingCastings();
-        fetchPayments();
-      });
+          fetchStats();
+          fetchPendingArtists();
+          fetchPendingBrands();
+          fetchPendingCastings();
+          fetchPayments();
+        });
+      };
+
+      loadAdminData();
+
+      const handleAuthLogout = () => {
+        router.push("/login");
+      };
+
+      const handleAuthChange = () => {
+        const session = getUserSession();
+        if (!session || !session.isLoggedIn || (session.role !== "admin" && session.role !== "ADMIN")) {
+          router.push("/login");
+        } else {
+          loadAdminData();
+        }
+      };
+
+      window.addEventListener("dca-auth-logout", handleAuthLogout);
+      window.addEventListener("dca-auth-change", handleAuthChange);
+      return () => {
+        window.removeEventListener("dca-auth-logout", handleAuthLogout);
+        window.removeEventListener("dca-auth-change", handleAuthChange);
+      };
     }
   }, [router, fetchStats, fetchPendingArtists, fetchPendingBrands, fetchPendingCastings, fetchPayments]);
+
+  const handleLogout = async () => {
+    await logoutDCAUserSession();
+    router.push("/login");
+  };
 
   // Execute Approve / Reject Action
   const handleExecuteAction = async () => {
@@ -648,6 +681,15 @@ export default function AdminDashboardPage() {
                         ₹{paymentsSummary.totalRevenue.toLocaleString("en-IN")}
                       </span>
                     )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 rounded-xl px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition cursor-pointer border border-transparent hover:border-red-200 pt-2"
+                  >
+                    <LogOut size={16} />
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>
@@ -1427,9 +1469,9 @@ export default function AdminDashboardPage() {
                                   </td>
 
                                   <td className="px-4 py-3.5 text-[11px] font-mono text-gray-500">
-                                    <div>{pay.razorpayOrderId || pay.id.substring(0, 18)}</div>
-                                    {pay.razorpayPaymentId && (
-                                      <div className="text-[10px] text-emerald-700">{pay.razorpayPaymentId}</div>
+                                    <div>{pay.payuTxnId || pay.razorpayOrderId || pay.id.substring(0, 18)}</div>
+                                    {(pay.payuPaymentId || pay.razorpayPaymentId) && (
+                                      <div className="text-[10px] text-emerald-700">{pay.payuPaymentId || pay.razorpayPaymentId}</div>
                                     )}
                                   </td>
 

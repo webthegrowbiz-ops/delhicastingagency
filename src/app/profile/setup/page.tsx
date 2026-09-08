@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import {
+  AlertCircle,
   ArrowRight,
   Camera,
   CheckCircle2,
@@ -20,7 +22,7 @@ import { PageHero } from "@/components/ui/page-hero";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
-import { isUserAuthenticated, setDCAUserSession, getUserSession, getAuthToken } from "@/lib/auth";
+import { isUserAuthenticated, setDCAUserSession, getUserSession, getAuthToken, clearDCAUserSession } from "@/lib/auth";
 import { API_URL } from "@/config/env";
 
 const inputClass =
@@ -60,47 +62,50 @@ const photoSlots: PhotoSlotConfig[] = [
   },
 ];
 
+const getInitialEmptyFormData = (userEmail = "") => ({
+  fullName: "",
+  displayName: "",
+  dob: "",
+  age: "",
+  gender: "",
+  city: "",
+  state: "",
+  phone: "",
+  email: userEmail,
+  languages: "",
+
+  primaryCategory: "Actor",
+  experience: "",
+  skills: "",
+  specialSkills: "",
+  previousWork: "",
+  portfolioDescription: "",
+
+  height: "",
+  weight: "",
+  chest: "",
+  waist: "",
+  hips: "",
+  shoeSize: "",
+  hairColor: "",
+  eyeColor: "",
+  skinTone: "",
+});
+
 export default function ProfileSetupPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [saved, setSaved] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [accountPassword, setAccountPassword] = useState("");
 
-  // Form State
-  const [formData, setFormData] = useState({
-    // Basic Info
-    fullName: "Aarav Sharma",
-    displayName: "Aarav Sharma",
-    dob: "1998-05-14",
-    age: "26",
-    gender: "Male",
-    city: "New Delhi",
-    state: "Delhi NCR",
-    phone: "+91 9876543210",
-    email: "aarav.sharma@example.com",
-    languages: "Hindi, English, Punjabi",
+  // Form State - initialized empty, filled only with current user's authenticated email
+  const [formData, setFormData] = useState(getInitialEmptyFormData());
 
-    // Talent Info
-    primaryCategory: "Actor",
-    experience: "3-5 Years",
-    skills: "Method Acting, Script Reading, Dialogue Delivery, Sword Fighting",
-    specialSkills: "Driving (Four-Wheeler & Bike), Horse Riding, Swimming",
-    previousWork: "Featured lead in independent short film 'Manzar' (2024), 2 Print Ad Campaigns",
-    portfolioDescription:
-      "Passionate theater actor with formal training from National School of Drama workshops. Specialized in dramatic and action roles.",
-
-    // Physical Details
-    height: "5'11\"",
-    weight: "72 kg",
-    chest: "40 inches",
-    waist: "32 inches",
-    hips: "38 inches",
-    shoeSize: "10 UK",
-    hairColor: "Black",
-    eyeColor: "Dark Brown",
-    skinTone: "Fair / Wheatish",
-  });
-
-  // Frontend-only 4 Photo Slots State
+  // 4 Photo Slots State
   const [photoFiles, setPhotoFiles] = useState<Record<PhotoKey, string | null>>({
     frontPhoto: null,
     backPhoto: null,
@@ -110,23 +115,161 @@ export default function ProfileSetupPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const session = getUserSession();
-      if (session?.role === "brand" || session?.role === "BRAND") {
-        router.push("/dashboard");
-        return;
-      }
-      const stored = localStorage.getItem("dca_artist_profile");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          requestAnimationFrame(() => {
-            if (parsed.formData) setFormData(parsed.formData);
-            if (parsed.photoFiles) setPhotoFiles(parsed.photoFiles);
-          });
-        } catch (e) {
-          console.error("Failed to parse stored profile", e);
+      const loadProfile = () => {
+        const session = getUserSession();
+        const token = getAuthToken();
+
+        if (session && (session.role === "brand" || session.role === "BRAND")) {
+          router.push("/dashboard");
+          return;
         }
-      }
+
+        const searchParams = new URLSearchParams(window.location.search);
+        const isExplicitEditMode = searchParams.get("mode") === "edit";
+
+        // EDIT MODE requires active session; if missing, redirect to login
+        if (isExplicitEditMode && (!session || !token)) {
+          router.push("/login");
+          return;
+        }
+
+        // CREATE MODE (Default): Always start with a 100% clean, empty form (no session/email prefill)
+        if (!isExplicitEditMode) {
+          setIsEditMode(false);
+          setFormData(getInitialEmptyFormData(""));
+          setAccountPassword("");
+          setPhotoFiles({
+            frontPhoto: null,
+            backPhoto: null,
+            leftPhoto: null,
+            rightPhoto: null,
+          });
+          setIsLoadingProfile(false);
+          return;
+        }
+
+        // EDIT MODE: Only query backend to populate data when explicitly requested via ?mode=edit
+        setIsLoadingProfile(true);
+
+        fetch(`${API_URL}/api/artist/profile`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
+          .then(async (res) => {
+            if (getAuthToken() !== token) return;
+
+            if (res.status === 401) {
+              clearDCAUserSession();
+              router.push("/login");
+              return;
+            }
+
+            if (res.status === 200) {
+              const data = await res.json();
+              if (data.success && data.profile) {
+                setIsEditMode(true);
+                const p = data.profile;
+                setFormData({
+                  fullName: p.fullName || "",
+                  displayName: p.fullName || "",
+                  dob: p.dateOfBirth ? p.dateOfBirth.slice(0, 10) : "",
+                  age: p.dateOfBirth
+                    ? String(
+                        Math.floor(
+                          (Date.now() - new Date(p.dateOfBirth).getTime()) /
+                            (365.25 * 24 * 60 * 60 * 1000)
+                        )
+                      )
+                    : "",
+                  gender: p.gender || "",
+                  city: p.city || "",
+                  state: p.state || "",
+                  phone: p.phone || "",
+                  email: p.user?.email || session?.email || "",
+                  languages: p.languages || "",
+                  primaryCategory: "Actor",
+                  experience: "",
+                  skills: p.skills || "",
+                  specialSkills: p.specialAbilities || "",
+                  previousWork: "",
+                  portfolioDescription: p.bio || "",
+                  height: p.height || "",
+                  weight: p.weight || "",
+                  chest: p.chest || "",
+                  waist: p.waist || "",
+                  hips: p.hips || "",
+                  shoeSize: "",
+                  hairColor: "",
+                  eyeColor: "",
+                  skinTone: "",
+                });
+
+                const headshotsList = (p.headshots || "")
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean);
+                setPhotoFiles({
+                  frontPhoto: p.profilePhoto || null,
+                  leftPhoto: headshotsList[0] || null,
+                  rightPhoto: headshotsList[1] || null,
+                  backPhoto: headshotsList[2] || null,
+                });
+                setIsLoadingProfile(false);
+                return;
+              }
+            }
+
+            // If no profile found in DB, remain clean empty form
+            setIsEditMode(false);
+            setFormData(getInitialEmptyFormData(""));
+            setPhotoFiles({
+              frontPhoto: null,
+              backPhoto: null,
+              leftPhoto: null,
+              rightPhoto: null,
+            });
+            setIsLoadingProfile(false);
+          })
+          .catch((err) => {
+            console.warn("Could not check artist profile status:", err);
+            if (getAuthToken() !== token) return;
+            setIsEditMode(false);
+            setFormData(getInitialEmptyFormData(""));
+            setIsLoadingProfile(false);
+          });
+      };
+
+      loadProfile();
+
+      const handleAuthLogout = () => {
+        setFormData(getInitialEmptyFormData());
+        setPhotoFiles({
+          frontPhoto: null,
+          backPhoto: null,
+          leftPhoto: null,
+          rightPhoto: null,
+        });
+        router.push("/login");
+      };
+
+      const handleAuthChange = () => {
+        const session = getUserSession();
+        if (!session || !session.isLoggedIn) {
+          handleAuthLogout();
+        } else {
+          loadProfile();
+        }
+      };
+
+      window.addEventListener("dca-auth-logout", handleAuthLogout);
+      window.addEventListener("dca-auth-change", handleAuthChange);
+      return () => {
+        window.removeEventListener("dca-auth-logout", handleAuthLogout);
+        window.removeEventListener("dca-auth-change", handleAuthChange);
+      };
     }
   }, [router]);
 
@@ -159,111 +302,195 @@ export default function ProfileSetupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
 
-    if (typeof window !== "undefined") {
-      let token = getAuthToken();
-      let userId = getUserSession()?.id;
+    if (!formData.fullName.trim()) {
+      setFormError("Please enter your full name.");
+      return;
+    }
 
-      const normalizedEmail = (formData.email || "artist@example.com").trim().toLowerCase();
+    const userEmail = (formData.email || "").trim().toLowerCase();
+    if (!userEmail) {
+      setFormError("Please enter your email address.");
+      return;
+    }
 
-      // If user doesn't have a backend token, register in background to get real JWT & user ID
-      if (!token) {
-        try {
-          const regRes = await fetch(`${API_URL}/api/auth/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: normalizedEmail,
-              password: "ArtistPassword@123",
-              role: "ARTIST",
-            }),
-          });
-          const regData = await regRes.json();
-          if (regRes.ok && regData.success && regData.token) {
-            token = regData.token;
-            userId = regData.user?.id;
-          }
-        } catch (err) {
-          console.warn("Auto registration background attempt:", err);
-        }
+    setSubmitting(true);
+    setFormError(null);
+
+    let session = getUserSession();
+    let token = getAuthToken();
+
+    const isMatchingSession =
+      Boolean(session?.isLoggedIn) &&
+      (session?.role?.toLowerCase() === "artist") &&
+      (session?.email?.toLowerCase() === userEmail || session?.identifier?.toLowerCase() === userEmail);
+
+    // If not authenticated, require registration with user's own chosen password
+    if (!token || !isMatchingSession) {
+      if (!accountPassword || accountPassword.length < 8) {
+        setFormError("Please enter a secure password with at least 8 characters.");
+        setSubmitting(false);
+        return;
       }
 
-      // Store fresh authenticated Artist session and token
-      setDCAUserSession(normalizedEmail, "artist", true, token || undefined, userId || undefined);
-
-      // Save local profile backup for instant loading
-      localStorage.setItem(
-        "dca_artist_profile",
-        JSON.stringify({
-          formData,
-          photoFiles,
-          savedAt: new Date().toISOString(),
-          completionPercentage: 100,
-        })
-      );
-
-      // If token exists, sync to backend PostgreSQL
-      if (token) {
-        try {
-          const payload = {
+      try {
+        const regRes = await fetch(`${API_URL}/api/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: userEmail,
+            password: accountPassword,
+            role: "ARTIST",
             fullName: formData.fullName.trim(),
-            phone: formData.phone.trim() || null,
-            gender: formData.gender || null,
-            dateOfBirth: formData.dob || null,
-            city: formData.city.trim() || null,
-            state: formData.state.trim() || null,
-            bio: formData.portfolioDescription.trim() || null,
-            height: formData.height.trim() || null,
-            weight: formData.weight.trim() || null,
-            chest: formData.chest.trim() || null,
-            waist: formData.waist.trim() || null,
-            hips: formData.hips.trim() || null,
-            languages: formData.languages.trim() || null,
-            skills: formData.skills.trim() || null,
-            specialAbilities: formData.specialSkills.trim() || null,
-            profilePhoto: photoFiles.frontPhoto || null,
-            headshots: [photoFiles.leftPhoto, photoFiles.rightPhoto, photoFiles.backPhoto]
-              .filter(Boolean)
-              .join(",") || null,
-          };
+            phone: formData.phone.trim() || undefined,
+          }),
+        });
 
-          let profileRes = await fetch(`${API_URL}/api/artist/profile`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-          });
+        const regData = await regRes.json();
 
-          if (profileRes.status === 409) {
-            profileRes = await fetch(`${API_URL}/api/artist/profile`, {
-              method: "PUT",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(payload),
-            });
+        // STRICT SECURITY: On collision, HALT immediately. Never auto-login, never overwrite.
+        if (regRes.status === 409) {
+          setFormError(
+            regData.message ||
+              "This email is already registered. Please log in or use a different email address."
+          );
+          setSubmitting(false);
+          setCurrentStep(1);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
           }
-        } catch (err) {
-          console.warn("Backend profile sync attempt:", err);
+          return;
         }
+
+        if (!regRes.ok || !regData.success || !regData.token) {
+          setFormError(regData.message || "Registration failed. Please check your information.");
+          setSubmitting(false);
+          setCurrentStep(1);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+          return;
+        }
+
+        token = regData.token;
+        session = getUserSession();
+        setDCAUserSession(userEmail, "ARTIST", true, token, regData.user?.id);
+      } catch (authErr) {
+        console.error("Artist registration network error:", authErr);
+        setFormError("Network error during registration. Please try again.");
+        setSubmitting(false);
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        return;
       }
     }
 
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 600);
+    const payload = {
+      fullName: formData.fullName.trim(),
+      phone: formData.phone.trim() || null,
+      gender: formData.gender || null,
+      dateOfBirth: formData.dob || null,
+      city: formData.city.trim() || null,
+      state: formData.state.trim() || null,
+      bio: formData.portfolioDescription.trim() || null,
+      height: formData.height.trim() || null,
+      weight: formData.weight.trim() || null,
+      chest: formData.chest.trim() || null,
+      waist: formData.waist.trim() || null,
+      hips: formData.hips.trim() || null,
+      languages: formData.languages.trim() || null,
+      skills: formData.skills.trim() || null,
+      specialAbilities: formData.specialSkills.trim() || null,
+      profilePhoto: photoFiles.frontPhoto || null,
+      headshots: [photoFiles.leftPhoto, photoFiles.rightPhoto, photoFiles.backPhoto]
+        .filter(Boolean)
+        .join(",") || null,
+    };
+
+    try {
+      const endpoint = `${API_URL}/api/artist/profile`;
+      const method = isEditMode ? "PUT" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setSaved(true);
+
+        const activeSession = session || getUserSession();
+        const scopedKey = activeSession?.id
+          ? `dca_artist_profile_${activeSession.id}`
+          : `dca_artist_profile_${userEmail}`;
+        try {
+          localStorage.setItem(
+            scopedKey,
+            JSON.stringify({
+              formData: { ...formData, password: "" },
+              photoFiles,
+              savedAt: new Date().toISOString(),
+            })
+          );
+          localStorage.removeItem("dca_artist_profile");
+        } catch {}
+
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 600);
+      } else {
+        if (res.status === 401) {
+          clearDCAUserSession();
+          setFormError("Session expired or invalid. Please log in again.");
+          setTimeout(() => router.push("/login"), 1500);
+          return;
+        }
+        const errData = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          // On 409 conflict: in CREATE mode, do NOT overwrite or fallback to PUT!
+          setFormError(
+            errData.message ||
+              (isEditMode
+                ? "Phone number or profile details conflict with an existing account."
+                : "A profile already exists for this account. Please log in to edit your profile.")
+          );
+        } else {
+          setFormError(errData.message || "Failed to save profile. Please check required fields.");
+        }
+      }
+    } catch {
+      setFormError("Network error. Unable to reach server.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (isLoadingProfile) {
+    return (
+      <main className="min-h-screen bg-white text-[#111111] flex flex-col items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div>
+        <p className="mt-4 text-xs font-bold uppercase tracking-widest text-[#555555]">
+          Loading Profile Details...
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-white text-[#111111]">
       <PageHero
-        eyebrow="Artist Profile Setup"
-        title="Create Your Artist Profile"
-        description="Complete your professional artist information, specifications, and casting photos."
+        eyebrow={isEditMode ? "Edit Profile" : "Artist Profile Setup"}
+        title={isEditMode ? "Edit Your Artist Profile" : "Create Your Artist Profile"}
+        description={
+          isEditMode
+            ? "Update your professional artist information, specifications, and casting photos."
+            : "Complete your professional artist information, specifications, and casting photos."
+        }
       />
 
       <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
@@ -302,7 +529,34 @@ export default function ProfileSetupPage() {
       </div>
 
       <section className="mx-auto max-w-7xl px-6 py-8 lg:px-8 lg:py-12">
-        <form onSubmit={handleSubmit} className="space-y-12">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-12">
+          {formError && (
+            <div className="rounded-2xl border border-red-300 bg-red-50 p-5 text-sm text-red-800 shadow-sm flex items-start gap-4">
+              <div className="rounded-full bg-red-100 p-2 text-red-600 shrink-0">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-red-900">Unable to Save Profile</h4>
+                <p className="mt-1 text-red-700 font-medium">{formError}</p>
+                {formError.includes("already registered") && (
+                  <p className="mt-2 text-xs">
+                    Already have an account?{" "}
+                    <Link href="/login" className="font-bold text-red-900 underline hover:text-red-950">
+                      Click here to Log In &rarr;
+                    </Link>
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormError(null)}
+                className="text-red-400 hover:text-red-700 font-bold p-1"
+                aria-label="Dismiss error"
+              >
+                &times;
+              </button>
+            </div>
+          )}
           
           {/* =========================================================
               STEP 1 — PROFILE FORM (SECTIONS A, B, C)
@@ -441,13 +695,41 @@ export default function ProfileSetupPage() {
                       </label>
                       <input
                         type="email"
+                        id="artist_register_email"
                         name="email"
+                        autoComplete="off"
                         required
+                        disabled={isEditMode}
                         value={formData.email}
                         onChange={handleChange}
-                        className={inputClass}
+                        placeholder="you@example.com"
+                        className={`${inputClass} ${isEditMode ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
                       />
+                      {isEditMode && (
+                        <p className="mt-1 text-[11px] text-gray-500">Email cannot be modified once registered.</p>
+                      )}
                     </div>
+
+                    {/* Password - required for artist registration */}
+                    {!isEditMode && (
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#111111]">
+                          Account Password *
+                        </label>
+                        <input
+                          type="password"
+                          id="artist_register_password"
+                          name="accountPassword"
+                          autoComplete="new-password"
+                          required
+                          minLength={8}
+                          value={accountPassword}
+                          onChange={(e) => setAccountPassword(e.target.value)}
+                          placeholder="Min 8 characters"
+                          className={inputClass}
+                        />
+                      </div>
+                    )}
 
                     {/* Languages */}
                     <div>
@@ -744,6 +1026,22 @@ export default function ProfileSetupPage() {
               </Reveal>
 
               {/* Step 1 Actions */}
+              {formError && (
+                <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 shadow-sm flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold">{formError}</p>
+                    {formError.includes("already registered") && (
+                      <p className="mt-1 text-xs">
+                        Already have an account?{" "}
+                        <Link href="/login" className="font-bold text-red-900 underline hover:text-red-950">
+                          Click here to Log In &rarr;
+                        </Link>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-end gap-4 border-t border-gray-200 pt-8">
                 <Button
                   type="button"
@@ -1017,6 +1315,22 @@ export default function ProfileSetupPage() {
                 </div>
 
                 {/* Step 2 Actions */}
+                {formError && (
+                  <div className="mt-8 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 shadow-sm flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold">{formError}</p>
+                      {formError.includes("already registered") && (
+                        <p className="mt-1 text-xs">
+                          Already have an account?{" "}
+                          <Link href="/login" className="font-bold text-red-900 underline hover:text-red-950">
+                            Click here to Log In &rarr;
+                          </Link>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="mt-10 flex items-center justify-between border-t border-gray-200 pt-8">
                   <Button
                     type="button"
@@ -1034,9 +1348,15 @@ export default function ProfileSetupPage() {
 
                   <Button
                     type="submit"
-                    className="py-4 px-8 text-sm font-bold uppercase tracking-wider"
+                    disabled={submitting}
+                    className="py-4 px-8 text-sm font-bold uppercase tracking-wider disabled:opacity-60"
                   >
-                    {saved ? (
+                    {submitting ? (
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                        Saving Profile...
+                      </span>
+                    ) : saved ? (
                       <>
                         <CheckCircle2 className="mr-2 h-5 w-5" />
                         Saved!

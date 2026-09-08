@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { CheckCheck, RefreshCw, BellOff, X } from "lucide-react";
 import {
   type NotificationItem,
@@ -191,6 +192,19 @@ export function NotificationDropdown({
             );
           })}
       </div>
+
+      {/* DROPDOWN FOOTER - VIEW ALL */}
+      {notifications.length > 0 && (
+        <div className="mt-3 pt-2.5 border-t border-gray-100 text-center">
+          <Link
+            href="/notifications"
+            onClick={onClose}
+            className="inline-flex items-center justify-center text-xs font-bold text-[#D4AF37] hover:text-[#C59B27] transition hover:underline py-1 px-2"
+          >
+            View all notifications →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

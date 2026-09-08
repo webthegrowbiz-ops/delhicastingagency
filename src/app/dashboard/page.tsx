@@ -38,6 +38,7 @@ import {
   getUserSession,
   getAuthToken,
   clearDCAUserSession,
+  logoutDCAUserSession,
   fetchBackendEntitlement,
   type ProfileStatus,
 } from "@/lib/auth";
@@ -246,67 +247,8 @@ export default function DashboardPage() {
       return;
     }
 
-    const loadLocalFallback = () => {
-      if (typeof window !== "undefined") {
-        const stored = localStorage.getItem("dca_artist_profile");
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (parsed.formData) {
-              const fallbackProfile: BackendArtistProfile = {
-                id: getUserSession()?.id || "artist-profile-local",
-                userId: getUserSession()?.id || "artist-user-local",
-                fullName: parsed.formData.fullName || "Aarav Sharma",
-                phone: parsed.formData.phone || null,
-                gender: parsed.formData.gender || "Male",
-                dateOfBirth: parsed.formData.dob || null,
-                city: parsed.formData.city || "New Delhi",
-                state: parsed.formData.state || "Delhi NCR",
-                bio: parsed.formData.portfolioDescription || null,
-                height: parsed.formData.height || null,
-                weight: parsed.formData.weight || null,
-                chest: parsed.formData.chest || null,
-                waist: parsed.formData.waist || null,
-                hips: parsed.formData.hips || null,
-                languages: parsed.formData.languages || null,
-                skills: parsed.formData.skills || null,
-                specialAbilities: parsed.formData.specialSkills || null,
-                profilePhoto: parsed.photoFiles?.frontPhoto || null,
-                headshots: [
-                  parsed.photoFiles?.leftPhoto,
-                  parsed.photoFiles?.rightPhoto,
-                  parsed.photoFiles?.backPhoto,
-                ]
-                  .filter(Boolean)
-                  .join(",") || null,
-                verificationStatus: "APPROVED",
-                adminFeedback: null,
-                submittedAt: parsed.savedAt || new Date().toISOString(),
-                approvedAt: new Date().toISOString(),
-                createdAt: parsed.savedAt || new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                user: {
-                  id: getUserSession()?.id || "artist-user-local",
-                  email: parsed.formData.email || getUserSession()?.email || "artist@example.com",
-                  role: "ARTIST",
-                },
-              };
-              setProfile(fallbackProfile);
-              setLoading(false);
-              setNotFound(false);
-              return true;
-            }
-          } catch (e) {
-            console.error("Error parsing local artist profile", e);
-          }
-        }
-      }
-      return false;
-    };
-
     const token = getAuthToken();
     if (!token) {
-      if (loadLocalFallback()) return;
       router.push("/login");
       return;
     }
@@ -324,15 +266,18 @@ export default function DashboardPage() {
         },
       });
 
+      // Discard response if user switched while request was in-flight
+      if (getAuthToken() !== token) return;
+
       if (response.status === 401) {
-        if (loadLocalFallback()) return;
         clearDCAUserSession();
         router.push("/login");
         return;
       }
 
       if (response.status === 404) {
-        if (loadLocalFallback()) return;
+        // True 404: The logged in artist has NOT created a profile yet
+        setProfile(null);
         setNotFound(true);
         setLoading(false);
         return;
@@ -344,8 +289,9 @@ export default function DashboardPage() {
         profile?: BackendArtistProfile;
       };
 
+      if (getAuthToken() !== token) return;
+
       if (!response.ok || !data.success || !data.profile) {
-        if (loadLocalFallback()) return;
         setError(data.message || "Failed to fetch artist profile");
         setLoading(false);
         return;
@@ -355,10 +301,11 @@ export default function DashboardPage() {
       if (data.profile.verificationStatus) {
         setProfileStatus(data.profile.verificationStatus);
       }
+      setNotFound(false);
       setLoading(false);
     } catch (err: unknown) {
       console.error("Dashboard fetch profile error:", err);
-      if (loadLocalFallback()) return;
+      if (getAuthToken() !== token) return;
       setError("Unable to connect to backend server. Please check your connection.");
       setLoading(false);
     }
@@ -381,6 +328,8 @@ export default function DashboardPage() {
         },
       });
 
+      if (getAuthToken() !== token) return;
+
       if (response.status === 401) {
         clearDCAUserSession();
         router.push("/login");
@@ -394,6 +343,8 @@ export default function DashboardPage() {
         applications?: BackendArtistApplication[];
       };
 
+      if (getAuthToken() !== token) return;
+
       if (!response.ok || !data.success) {
         setAppsError(data.message || "Failed to fetch submitted applications");
         setLoadingApps(false);
@@ -404,6 +355,7 @@ export default function DashboardPage() {
       setLoadingApps(false);
     } catch (err: unknown) {
       console.error("Dashboard fetch applications error:", err);
+      if (getAuthToken() !== token) return;
       setAppsError("Unable to connect to backend server. Please check your connection.");
       setLoadingApps(false);
     }
@@ -426,6 +378,8 @@ export default function DashboardPage() {
         },
       });
 
+      if (getAuthToken() !== token) return;
+
       if (response.status === 401) {
         clearDCAUserSession();
         router.push("/login");
@@ -439,6 +393,8 @@ export default function DashboardPage() {
         castings?: BrandCastingCall[];
       };
 
+      if (getAuthToken() !== token) return;
+
       if (!response.ok || !data.success) {
         setBrandCastingsError(data.message || "Failed to fetch brand casting calls");
         setLoadingBrandCastings(false);
@@ -449,6 +405,7 @@ export default function DashboardPage() {
       setLoadingBrandCastings(false);
     } catch (err: unknown) {
       console.error("Dashboard fetch brand castings error:", err);
+      if (getAuthToken() !== token) return;
       setBrandCastingsError("Unable to connect to backend server.");
       setLoadingBrandCastings(false);
     }
@@ -499,16 +456,19 @@ export default function DashboardPage() {
           Authorization: `Bearer ${token}`,
         },
       });
+      if (getAuthToken() !== token) return;
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.profile) {
           let bp = data.profile;
 
-          // Retrieve any existing local registration data from localStorage
+          // Retrieve any existing local registration data from localStorage (user-scoped only)
           let localFormData: Record<string, string | undefined> | null = null;
           if (typeof window !== "undefined") {
             try {
-              const rawBrand = localStorage.getItem("dca_brand_profile");
+              const session = getUserSession();
+              const userScopedKey = session?.id ? `dca_brand_profile_${session.id}` : null;
+              const rawBrand = userScopedKey ? localStorage.getItem(userScopedKey) : null;
               if (rawBrand) {
                 const parsed = JSON.parse(rawBrand);
                 if (parsed.formData && typeof parsed.formData === "object") {
@@ -617,6 +577,8 @@ export default function DashboardPage() {
               ? (localFormData?.companyName || bp.companyName)
               : bp.companyName;
 
+          if (getAuthToken() !== token) return;
+
           setBrandData((prev) => ({
             ...prev,
             companyName: effectiveCompanyName || prev?.companyName,
@@ -638,62 +600,108 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (!isUserAuthenticated()) {
-        router.push("/login");
+  const loadDashboardData = useCallback(() => {
+    if (!isUserAuthenticated()) {
+      router.push("/login");
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const session = getUserSession();
+      if (session?.role === "admin" || session?.role === "ADMIN") {
+        router.push("/admin/dashboard");
         return;
       }
 
-      requestAnimationFrame(() => {
-        const session = getUserSession();
-        if (session?.role === "admin" || session?.role === "ADMIN") {
-          router.push("/admin/dashboard");
-          return;
-        }
-
-        if (session?.role === "brand" || session?.role === "BRAND") {
-          setUserRole("brand");
-          try {
-            const rawBrand = localStorage.getItem("dca_brand_profile");
-            if (rawBrand) {
-              const parsed = JSON.parse(rawBrand);
-              if (parsed.formData) {
-                setBrandData(parsed.formData);
-              }
+      if (session?.role === "brand" || session?.role === "BRAND") {
+        setUserRole("brand");
+        try {
+          const userScopedKey = session?.id ? `dca_brand_profile_${session.id}` : null;
+          const rawBrand = userScopedKey ? localStorage.getItem(userScopedKey) : null;
+          if (rawBrand) {
+            const parsed = JSON.parse(rawBrand);
+            if (parsed.formData) {
+              setBrandData(parsed.formData);
             }
-          } catch (e) {
-            console.warn("Failed to load local brand profile:", e);
           }
-          fetchBrandCastings();
-          fetchBrandProfile();
-        } else {
-          setUserRole("artist");
-          fetchProfile();
-          fetchApplications();
+        } catch (e) {
+          console.warn("Failed to load local brand profile:", e);
         }
+        fetchBrandCastings();
+        fetchBrandProfile();
+      } else {
+        setUserRole("artist");
+        fetchProfile();
+        fetchApplications();
+      }
 
-        // Authoritative backend entitlement verification:
-        // Do NOT trust localStorage isPremium as the source of truth.
-        fetchBackendEntitlement().then((res) => {
-          const isBrandAccount =
-            session?.role === "brand" || session?.role === "BRAND";
-          const expectedPlan = isBrandAccount
-            ? "BRAND_PREMIUM"
-            : "ARTIST_PREMIUM";
+      // Authoritative backend entitlement verification:
+      // Do NOT trust localStorage isPremium as the source of truth.
+      fetchBackendEntitlement().then((res) => {
+        const isBrandAccount =
+          session?.role === "brand" || session?.role === "BRAND";
+        const expectedPlan = isBrandAccount
+          ? "BRAND_PREMIUM"
+          : "ARTIST_PREMIUM";
 
-          if (res.isPremium && res.entitlement?.plan === expectedPlan) {
-            setIsPremiumUser(true);
-          } else {
-            setIsPremiumUser(false);
-          }
-        });
+        if (res.isPremium && res.entitlement?.plan === expectedPlan) {
+          setIsPremiumUser(true);
+        } else {
+          setIsPremiumUser(false);
+        }
       });
-    }
-  }, [router, fetchProfile, fetchApplications, fetchBrandCastings]);
+    });
+  }, [router, fetchProfile, fetchApplications, fetchBrandCastings, fetchBrandProfile]);
 
-  const handleLogout = () => {
-    clearDCAUserSession();
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      loadDashboardData();
+
+      const handleAuthLogout = () => {
+        setProfile(null);
+        setApplications([]);
+        setBrandCastings([]);
+        setBrandApplicants([]);
+        setBrandData(null);
+        setIsPremiumUser(false);
+        setNotFound(false);
+        router.push("/login");
+      };
+
+      const handleAuthChange = () => {
+        const session = getUserSession();
+        if (!session || !session.isLoggedIn) {
+          handleAuthLogout();
+        } else {
+          setProfile(null);
+          setApplications([]);
+          setBrandCastings([]);
+          setBrandApplicants([]);
+          setBrandData(null);
+          setIsPremiumUser(false);
+          setNotFound(false);
+          loadDashboardData();
+        }
+      };
+
+      window.addEventListener("dca-auth-logout", handleAuthLogout);
+      window.addEventListener("dca-auth-change", handleAuthChange);
+      return () => {
+        window.removeEventListener("dca-auth-logout", handleAuthLogout);
+        window.removeEventListener("dca-auth-change", handleAuthChange);
+      };
+    }
+  }, [loadDashboardData, router]);
+
+  const handleLogout = async () => {
+    setProfile(null);
+    setApplications([]);
+    setBrandCastings([]);
+    setBrandApplicants([]);
+    setBrandData(null);
+    setIsPremiumUser(false);
+    setNotFound(false);
+    await logoutDCAUserSession();
     router.push("/login");
   };
 
@@ -1240,7 +1248,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-[#555555]">
-                      {isBrand ? `${brandApplicants.length} Candidates` : "4 Saved"}
+                      {isBrand ? `${brandApplicants.length} Candidates` : "0 Saved"}
                     </span>
                   </button>
                 </div>
@@ -1326,7 +1334,7 @@ export default function DashboardPage() {
                     </div>
 
                     <Link
-                      href={isBrand ? "/register/brand" : "/profile/setup"}
+                      href={isBrand ? "/register/brand" : "/profile/setup?mode=edit"}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-[#F7F7F5] px-4 py-2 text-xs font-bold text-[#111111] transition hover:bg-[#D4AF37] hover:text-white"
                     >
                       <Edit size={14} />
@@ -2046,7 +2054,17 @@ export default function DashboardPage() {
                   ) : (
                     <div className="rounded-2xl border border-gray-200 bg-[#F7F7F5] p-8 text-center text-xs text-[#555555]">
                       <Bookmark size={32} className="mx-auto mb-3 text-[#D4AF37]" />
-                      <p>You have 4 saved items in your account.</p>
+                      <h3 className="font-serif text-base font-bold text-[#111111] mb-1">No Saved Audition Calls</h3>
+                      <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+                        You have not bookmarked any casting calls yet. Browse verified Bollywood casting calls to save opportunities here.
+                      </p>
+                      <Link
+                        href="/casting-calls"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition hover:bg-[#C59B27]"
+                      >
+                        <span>Explore Casting Calls</span>
+                        <ArrowRight size={13} />
+                      </Link>
                     </div>
                   )}
                 </div>
