@@ -11,10 +11,18 @@ if (!fs.existsSync(uploadDir)) {
 
 // 1. Storage Engine Configuration
 const storage = multer.diskStorage({
-  destination: (_req: Request, _file: Express.Multer.File, cb) => {
+  destination: (
+    _req: Request,
+    _file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void,
+  ) => {
     cb(null, uploadDir);
   },
-  filename: (_req: Request, file: Express.Multer.File, cb) => {
+  filename: (
+    _req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, filename: string) => void,
+  ) => {
     // Generate safe, unique filename: fieldname-timestamp-random.ext
     const ext = path.extname(file.originalname).toLowerCase();
     const sanitizedBase = path

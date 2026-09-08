@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Request, Response, NextFunction } from "express";
 
 import {
   createArtistProfile,
@@ -29,7 +30,7 @@ router.put(
 router.post(
   "/upload",
   authenticate,
-  (req, res, next) => {
+  (req: Request, res: Response, next: NextFunction) => {
     uploadMiddleware.any()(req, res, (err: unknown) => {
       if (err) {
         const errorObj = err as { code?: string; message?: string };
