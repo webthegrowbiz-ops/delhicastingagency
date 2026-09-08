@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express from "express";
+import type { Request, Response } from "express";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import cors from "cors";
 import helmet from "helmet";
 import path from "node:path";
@@ -112,8 +114,11 @@ app.use(
 
 app.use(
   express.json({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    verify: (req: any, _res, buf) => {
+    verify: (
+      req: IncomingMessage & { rawBody?: Buffer },
+      _res: ServerResponse,
+      buf: Buffer,
+    ) => {
       req.rawBody = buf;
     },
   }),
@@ -122,8 +127,11 @@ app.use(
 app.use(
   express.urlencoded({
     extended: true,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    verify: (req: any, _res, buf) => {
+    verify: (
+      req: IncomingMessage & { rawBody?: Buffer },
+      _res: ServerResponse,
+      buf: Buffer,
+    ) => {
       req.rawBody = buf;
     },
   }),
@@ -170,7 +178,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/payments", paymentRoutes);
 
 // Health check endpoint
-app.get("/api/health", async (_req, res) => {
+app.get("/api/health", async (_req: Request, res: Response) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
 
@@ -207,7 +215,7 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
-app.use((_req, res) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     message: "API route not found",

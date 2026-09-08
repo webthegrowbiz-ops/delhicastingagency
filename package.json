@@ -16,5 +16,16 @@
     "build:backend": "npm --prefix backend run build",
     "start:backend": "npm --prefix backend start",
     "postinstall": "npm --prefix backend run postinstall"
+  },
+  "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.4.0",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pg": "^8.23.1",
+    "typescript": "^7.0.2"
   }
 }
